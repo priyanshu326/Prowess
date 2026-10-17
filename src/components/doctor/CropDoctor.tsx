@@ -166,7 +166,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            {isHi ? '48-घंटे रोग रडार' : 'Disease Radar'}
+            {isHi ? '48-घंटे पूर्व-चेतावनी रडार' : 'Pre-Symptom Radar'}
           </button>
           <button
             onClick={() => setActiveTab('diagnosis')}
@@ -180,6 +180,31 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
             <span>{isHi ? 'एआई फोटो जांच (Gemini)' : 'AI Photo Diagnosis'}</span>
           </button>
         </div>
+      </div>
+
+      {/* Problem 2.4 Explicit Safeguard Banner: Late Disease Detection & Specialist Access */}
+      <div className="px-4 py-2.5 bg-rose-50/80 border-b border-rose-200/80 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2 text-rose-950">
+        <div className="flex items-start sm:items-center gap-2">
+          <span className="text-base shrink-0">🔬</span>
+          <div>
+            <span className="font-extrabold uppercase tracking-wide text-[10px] text-rose-900 block">
+              {isHi ? 'Problem 2.4 समाधान: प्रारंभिक लक्षण-पूर्व पहचान व विशेषज्ञ सलाह' : 'Problem 2.4: Early Pre-Symptom Detection & Expert Access'}
+            </span>
+            <p className="text-[11px] font-semibold text-rose-950 leading-relaxed mt-0.5">
+              {isHi
+                ? 'कवक व जीवाणु पत्तियों पर धब्बे दिखने से 48–72 घंटे पहले ही नम मौसम में पनप जाते हैं। स्थानीय दुकानदार की मनमानी सलाह या अनुमान के बजाय मौसम-आधारित पूर्व चेतावनी और अधिकृत KVK वैज्ञानिकों से पुष्टि करें।'
+                : 'Diseases establish before visible symptoms appear. Avoid delayed action, guesswork, or unverified shopkeeper advice with pre-symptom radar and direct KVK scientist access.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowKvkModal(true)}
+          className="shrink-0 px-2.5 py-1 rounded-lg bg-white border border-rose-300 text-rose-900 font-bold text-[11px] hover:bg-rose-100 flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+        >
+          <PhoneCall className="w-3 h-3 text-rose-700" />
+          <span>{isHi ? 'KVK वैज्ञानिक निर्देशिका' : 'KVK Directory'}</span>
+        </button>
       </div>
 
       {/* TAB A: 48-Hour Disease Risk Radar */}

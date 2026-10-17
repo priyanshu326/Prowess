@@ -73,6 +73,8 @@ export function calculateSowingSafetyScore(
   verdict: 'FAVORABLE' | 'CAUTION' | 'HIGH_RISK';
   verdictHi: string;
   explanationHi: string;
+  reSowingRiskCostInr?: number;
+  washoutRotRiskHi?: string;
 } {
   const tempScore = calculateSoilTempSuitability(soilTempC, crop);
   const rainScore = calculateRainfallRiskSuitability(expectedRainMm, rainProbPct);
@@ -85,6 +87,9 @@ export function calculateSowingSafetyScore(
   let verdictHi = 'अत्यधिक जोखिम (High Risk)';
   let explanationHi = 'खराब मौसम या अत्यधिक बारिश के कारण बुवाई टालें।';
 
+  let reSowingRiskCostInr = 0;
+  let washoutRotRiskHi = 'बीज बहने या सड़ने का कोई तात्कालिक खतरा नहीं है।';
+
   if (totalScore >= 75) {
     verdict = 'FAVORABLE';
     verdictHi = 'बुवाई के लिए अनुकूल (Generally Favorable)';
@@ -93,10 +98,13 @@ export function calculateSowingSafetyScore(
     verdict = 'CAUTION';
     verdictHi = 'सावधानी बरतें (Proceed Carefully)';
     explanationHi = 'मौसम में नमी या हल्की वर्षा का जोखिम है। बीज उपचार के बाद ही स्थानीय सिफारिशों के अनुसार बुवाई करें।';
+    washoutRotRiskHi = 'हल्की वर्षा की संभावना है, ढलान वाले खेतों में बीज गहराई 4-5 सेमी रखें।';
   } else {
     verdict = 'HIGH_RISK';
     verdictHi = 'बुवाई योजना की समीक्षा करें (Review Sowing Plan)';
-    explanationHi = 'भारी वर्षा या प्रतिकूल मृदा तापमान के कारण बीज सड़ने व जलभराव का खतरा है।';
+    explanationHi = 'भारी वर्षा या प्रतिकूल मृदा तापमान के कारण बीज सड़ने व जलभराव का खतरा है। बुवाई स्थगित करें।';
+    reSowingRiskCostInr = 2400; // Estimated cost per acre: seed + re-ploughing
+    washoutRotRiskHi = 'असमय भारी बारिश से बीज बहने या सड़ने का गंभीर खतरा! जल्दबाजी में बुवाई करने पर प्रति एकड़ लगभग ₹2,400 का दोबारा बुवाई (Re-sowing) खर्च हो सकता है।';
   }
 
   return {
@@ -107,6 +115,96 @@ export function calculateSowingSafetyScore(
     verdict,
     verdictHi,
     explanationHi,
+    reSowingRiskCostInr,
+    washoutRotRiskHi,
+  };
+}
+
+/**
+ * Harvest Safety & Wet Weather Risk Evaluator (Problem 2.1)
+ * Evaluates whether harvesting into upcoming weather is safe or risks damaging grain quality
+ */
+export function calculateHarvestSafetyScore(
+  expectedRainMm: number,
+  rainProbPct: number,
+  relativeHumidityPct: number,
+  windSpeedKmh: number,
+  crop: CropConfig,
+  forecastDays: { expectedRainMm: number; rainProbabilityPct: number }[] = []
+): {
+  totalScore: number;
+  rainRiskScore: number;
+  humidityScore: number;
+  dryingWindowDays: number;
+  verdict: 'FAVORABLE' | 'CAUTION' | 'HIGH_RISK';
+  verdictHi: string;
+  explanationHi: string;
+  grainQualityRiskHi: string;
+  lossMitigationTipHi: string;
+} {
+  // Rain is the greatest enemy of harvest quality
+  let rainRiskScore = 100;
+  if (expectedRainMm >= 25 || rainProbPct >= 70) rainRiskScore = 10;
+  else if (expectedRainMm >= 10 || rainProbPct >= 50) rainRiskScore = 35;
+  else if (expectedRainMm >= 3 || rainProbPct >= 30) rainRiskScore = 65;
+  else if (expectedRainMm > 0) rainRiskScore = 85;
+
+  // Humidity above 75% inhibits field drying and promotes mold/discoloration
+  let humidityScore = 100;
+  if (relativeHumidityPct > 80) humidityScore = 30;
+  else if (relativeHumidityPct > 70) humidityScore = 60;
+  else if (relativeHumidityPct > 55) humidityScore = 85;
+
+  // High winds (>35 km/h) cause grain shattering and crop lodging
+  let windScore = 100;
+  if (windSpeedKmh > 50) windScore = 20;
+  else if (windSpeedKmh > 35) windScore = 55;
+  else if (windSpeedKmh > 20) windScore = 85;
+
+  // Calculate consecutive dry days (< 2mm rain) ahead
+  let dryingWindowDays = 0;
+  for (const day of forecastDays) {
+    if (day.expectedRainMm < 2 && day.rainProbabilityPct < 30) {
+      dryingWindowDays++;
+    } else {
+      break;
+    }
+  }
+  if (dryingWindowDays === 0 && expectedRainMm < 1) dryingWindowDays = 3;
+
+  const rawScore = 0.50 * rainRiskScore + 0.30 * humidityScore + 0.20 * windScore;
+  const totalScore = Math.min(100, Math.max(0, Math.round(rawScore)));
+
+  let verdict: 'FAVORABLE' | 'CAUTION' | 'HIGH_RISK' = 'HIGH_RISK';
+  let verdictHi = 'कटाई स्थगित रखें (High Wet Weather Risk)';
+  let explanationHi = 'आगामी मौसम में बारिश व उच्च आर्द्रता से कटाई अत्यधिक जोखिमपूर्ण है।';
+  let grainQualityRiskHi = 'गीले मौसम में कटाई से दाने में नमी > 14% पहुंचेगी, फफूंद व चमक खराब होगी। मंडी में ₹150–₹300/क्विंटल तक कटौती लग सकती है।';
+  let lossMitigationTipHi = 'खेत में पकी फसल न काटें; यदि कटी पड़ी है तो तुरंत वाटरप्रूफ तिरपाल से ढकें और ऊंचे पक्के फर्श पर ले जाएं।';
+
+  if (totalScore >= 75) {
+    verdict = 'FAVORABLE';
+    verdictHi = 'कटाई व सुखाने हेतु उत्तम मौसम (Safe Harvest Window)';
+    explanationHi = `आगामी दिनों में मौसम सूखा व धूप खिली रहने का अनुमान है। ${crop.nameHi} की कटाई, गहाई (Threshing) व सुखाने के लिए आदर्श स्थिति।`;
+    grainQualityRiskHi = 'दाने में सुरक्षित नमी (10–12%) बनी रहेगी; मंडी में उच्च गुणवत्ता ए-ग्रेड भाव मिलने की संभावना।';
+    lossMitigationTipHi = 'कटाई के बाद अनाज को धूप में 1–2 दिन सुखाकर साफ बोरों में रखें।';
+  } else if (totalScore >= 50) {
+    verdict = 'CAUTION';
+    verdictHi = 'सतर्कता से कटाई करें (Monitor Window)';
+    explanationHi = 'मौसम में आंशिक बादल या हल्की नमी संभव है। छोटी मात्रा में कटाई करें और तिरपाल तैयार रखें।';
+    grainQualityRiskHi = 'हल्की नमी से दानों की चमक मंद हो सकती है; गहाई के तुरंत बाद ड्रायर या हवादार जगह पर फैलाएं।';
+    lossMitigationTipHi = 'कंबाइन हार्वेस्टर से कटाई के तुरंत बाद सुखाने का प्रबंध रखें।';
+  }
+
+  return {
+    totalScore,
+    rainRiskScore,
+    humidityScore,
+    dryingWindowDays,
+    verdict,
+    verdictHi,
+    explanationHi,
+    grainQualityRiskHi,
+    lossMitigationTipHi,
   };
 }
 
@@ -147,13 +245,18 @@ export function evaluateMotorDigitalTwin(
   rainForecast16hMm: number,
   simulation: SimulationState,
   crop: CropConfig,
-  currentMotorState: SoilTwinState['motorState']
+  currentMotorState: SoilTwinState['motorState'],
+  stageId?: string
 ): {
   recommendation: SoilTwinState['irrigationRecommendation'];
   reasonHi: string;
   recommendedMotorState: SoilTwinState['motorState'];
   litersSaved: number;
   inrSaved: number;
+  estimatedLabourHoursSaved: number;
+  nutrientLeachingRisk: 'low' | 'moderate' | 'high';
+  nutrientLeachingMessageHi: string;
+  rootDiseaseEncouragementRisk: 'low' | 'moderate' | 'high';
 } {
   const flowRateLph = 25000; // 5 HP pump ~ 25,000 L/hr
   const plannedHours = 4;
@@ -164,6 +267,37 @@ export function evaluateMotorDigitalTwin(
   const isSaturated = soil.rootMoisture >= crop.optimalRootMoistureMax;
   const isOptimal = soil.rootMoisture >= crop.optimalRootMoistureMin;
 
+  // Problem 2.3: Crop stage understanding (e.g. Sowing needs light moisture, CRI/Vegetative needs optimal, Heading needs care, Ripening needs dry soil)
+  const isMaturityStage = stageId === 'maturity' || stageId === 'harvest';
+
+  // Nutrient leaching risk occurs when soil is already wet and rain or excessive pumping washes nitrates deep
+  const nutrientLeachingRisk: 'low' | 'moderate' | 'high' =
+    isSaturated || (isOptimal && isRainComing) ? 'high' : soil.rootMoisture > 65 ? 'moderate' : 'low';
+  const nutrientLeachingMessageHi =
+    nutrientLeachingRisk === 'high'
+      ? '⚠️ उच्च पोषक तत्व रिसाव जोखिम (High Leaching Risk): अति-सिंचाई या भारी वर्षा से यूरिया व घुलनशील नाइट्रोजन जड़ क्षेत्र से नीचे रिसकर व्यर्थ हो जाएंगे।'
+      : nutrientLeachingRisk === 'moderate'
+      ? 'मध्यम रिसाव जोखिम: हल्की सिंचाई रखें ताकि उर्वरक जड़ क्षेत्र में ही संचित रहें।'
+      : 'न्यूनतम रिसाव जोखिम: मृदा में नमी संतुलित है।';
+
+  // Over-irrigation encourages Phytophthora, Pythium, and root rot
+  const rootDiseaseEncouragementRisk: 'low' | 'moderate' | 'high' =
+    soil.rootMoisture > 75 || simulation.isActive ? 'high' : soil.rootMoisture > 65 ? 'moderate' : 'low';
+
+  if (isMaturityStage) {
+    return {
+      recommendation: 'stop',
+      reasonHi: 'फसल परिपक्वता (Maturity) चरण में है। इस अवस्था में सिंचाई बंद रखने से दाना कड़ा बनता है और कटाई सुगम होती है।',
+      recommendedMotorState: 'SIMULATED_OFF',
+      litersSaved: Math.round(flowRateLph * plannedHours),
+      inrSaved: Math.round(plannedHours * fuelConsumptionLph * dieselPrice),
+      estimatedLabourHoursSaved: 4,
+      nutrientLeachingRisk: 'low',
+      nutrientLeachingMessageHi: 'परिपक्वता चरण में सिंचाई रोकने से दाने की गुणवत्ता सुरक्षित रहती है।',
+      rootDiseaseEncouragementRisk: 'low',
+    };
+  }
+
   if (simulation.isActive || (isRainComing && isOptimal)) {
     // Demonstration scenario figures
     const litersSaved = simulation.isActive ? 350 : Math.round(flowRateLph * plannedHours);
@@ -172,21 +306,29 @@ export function evaluateMotorDigitalTwin(
     return {
       recommendation: 'stop',
       reasonHi: simulation.isActive
-        ? '⚠️ चरम मौसम सिमुलेशन: आगामी 72 घंटों में 85 मिमी वर्षा अनुमानित है। जलभराव रोकने हेतु नलकूप स्वतः बंद (AUTO-OFF) अनुशंसित है। (उदाहरण बचत: 350L जल, ₹140 डीजल)'
-        : `आगामी 16 घंटों में ${rainForecast16hMm} मिमी वर्षा का पूर्वानुमान है और जड़ क्षेत्र में ${soil.rootMoisture}% नमी है। सिंचाई रोककर जल और डीजल की बचत करें।`,
+        ? '⚠️ चरम मौसम सिमुलेशन: आगामी 72 घंटों में 85 मिमी वर्षा अनुमानित है। जलभराव, पोषक तत्व रिसाव व जड़ गलन रोकने हेतु नलकूप स्वतः बंद (AUTO-OFF) अनुशंसित है। (उदाहरण बचत: 350L जल, ₹140 डीजल, 4 घंटे श्रम)'
+        : `आगामी 16 घंटों में ${rainForecast16hMm} मिमी वर्षा का पूर्वानुमान है और जड़ क्षेत्र में ${soil.rootMoisture}% नमी है। सिंचाई रोककर जल, डीजल, श्रम और यूरिया का रिसाव बचाएं।`,
       recommendedMotorState: 'AUTO_OFF_RECOMMENDED',
       litersSaved,
       inrSaved,
+      estimatedLabourHoursSaved: 4,
+      nutrientLeachingRisk,
+      nutrientLeachingMessageHi,
+      rootDiseaseEncouragementRisk,
     };
   }
 
   if (isSaturated) {
     return {
       recommendation: 'stop',
-      reasonHi: 'मिट्टी में नमी संतृप्त (Saturated) स्तर पर है। अतिरिक्त सिंचाई से जड़ गलन रोग हो सकता है।',
+      reasonHi: 'मिट्टी में नमी संतृप्त (Saturated) स्तर पर है। अतिरिक्त सिंचाई से पोषक तत्व नीचे रिस जाएंगे और जड़ गलन रोग फैलेगा।',
       recommendedMotorState: 'SIMULATED_OFF',
       litersSaved: Math.round(flowRateLph * 2),
       inrSaved: Math.round(2 * fuelConsumptionLph * dieselPrice),
+      estimatedLabourHoursSaved: 3,
+      nutrientLeachingRisk: 'high',
+      nutrientLeachingMessageHi,
+      rootDiseaseEncouragementRisk: 'high',
     };
   }
 
@@ -194,27 +336,39 @@ export function evaluateMotorDigitalTwin(
     if (rainForecast16hMm >= 5) {
       return {
         recommendation: 'delay',
-        reasonHi: 'हल्की वर्षा की संभावना है। 12-16 घंटे प्रतीक्षा करें, यदि बारिश न हो तो ही हल्की सिंचाई करें।',
+        reasonHi: 'हल्की वर्षा की संभावना है। 12-16 घंटे प्रतीक्षा करें, यदि बारिश न हो तो ही हल्की सिंचाई करें ताकि डीजल व श्रम व्यर्थ न हो।',
         recommendedMotorState: currentMotorState === 'MANUAL_OVERRIDE' ? 'SIMULATED_ON' : 'SIMULATED_OFF',
         litersSaved: 0,
         inrSaved: 0,
+        estimatedLabourHoursSaved: 2,
+        nutrientLeachingRisk: 'low',
+        nutrientLeachingMessageHi,
+        rootDiseaseEncouragementRisk: 'low',
       };
     }
     return {
       recommendation: 'irrigate_normal',
-      reasonHi: `मिट्टी में नमी ${soil.rootMoisture}% है जो न्यूनतम सीमा (${crop.optimalRootMoistureMin}%) से कम है। सामान्य सिंचाई की आवश्यकता है।`,
+      reasonHi: `मिट्टी में नमी ${soil.rootMoisture}% है जो न्यूनतम सीमा (${crop.optimalRootMoistureMin}%) से कम है। वर्तमान फसल चरण अनुसार सामान्य सिंचाई की आवश्यकता है।`,
       recommendedMotorState: currentMotorState === 'MANUAL_OVERRIDE' ? 'SIMULATED_ON' : 'SIMULATED_ON',
       litersSaved: 0,
       inrSaved: 0,
+      estimatedLabourHoursSaved: 0,
+      nutrientLeachingRisk: 'low',
+      nutrientLeachingMessageHi,
+      rootDiseaseEncouragementRisk: 'low',
     };
   }
 
   return {
     recommendation: 'delay',
-    reasonHi: `जड़ क्षेत्र में पर्याप्त नमी (${soil.rootMoisture}%) है। फिलहाल अतिरिक्त सिंचाई की आवश्यकता नहीं है।`,
+    reasonHi: `जड़ क्षेत्र में पर्याप्त नमी (${soil.rootMoisture}%) है। फिलहाल अतिरिक्त सिंचाई की आवश्यकता नहीं है; मोटर बंद रखकर जल, ईंधन व श्रम बचाएं।`,
     recommendedMotorState: 'SIMULATED_OFF',
     litersSaved: 0,
     inrSaved: 0,
+    estimatedLabourHoursSaved: 2,
+    nutrientLeachingRisk: 'low',
+    nutrientLeachingMessageHi,
+    rootDiseaseEncouragementRisk: 'low',
   };
 }
 

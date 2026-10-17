@@ -21,6 +21,7 @@ interface VirtualSoilTwinProps {
   soilState: SoilTwinState;
   simulation: SimulationState;
   nextRainfallMm: number;
+  selectedStageId?: string;
   onUpdateMotorState: (newState: SoilTwinState['motorState']) => void;
 }
 
@@ -30,9 +31,11 @@ export const VirtualSoilTwin: React.FC<VirtualSoilTwinProps> = ({
   soilState,
   simulation,
   nextRainfallMm,
+  selectedStageId,
   onUpdateMotorState,
 }) => {
   const isHi = language === 'hi';
+  const [showIotComparison, setShowIotComparison] = useState(false);
 
   // Motor operating mode: Simulated vs Connected Hardware
   const [motorMode, setMotorMode] = useState<'simulated' | 'connected_hardware'>('simulated');
@@ -89,33 +92,77 @@ export const VirtualSoilTwin: React.FC<VirtualSoilTwinProps> = ({
             </h2>
             <p className="text-xs text-stone-500">
               {isHi
-                ? 'जल बचाएं, अनावश्यक पंपिंग घटाएं और सही समय पर सिंचाई करें (Save water, reduce pumping).'
-                : 'Save water, reduce unnecessary pumping, and irrigate at the right time.'}
+                ? 'जल बचाएं, अनावश्यक पंपिंग घटाएं, यूरिया रिसाव रोकें और श्रम की बचत करें (Problems 2.2 & 2.3).'
+                : 'Save water, eliminate unnecessary pumping, avoid nutrient leaching, and save farmer labour.'}
             </p>
           </div>
         </div>
 
-        {/* Mode Switcher */}
-        <div className="flex items-center bg-stone-200/80 p-0.5 rounded-lg text-xs font-bold">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setMotorMode('simulated')}
-            className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
-              motorMode === 'simulated' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
-            }`}
+            onClick={() => setShowIotComparison(!showIotComparison)}
+            className="text-xs text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors cursor-pointer"
           >
-            {isHi ? 'सिम्युलेटेड मोटर' : 'Simulated Motor'}
+            <span>📡</span>
+            <span>{isHi ? 'IoT बाधाएं बनाम सॉफ्टवेयर ट्विन' : 'IoT vs Software Twin'}</span>
           </button>
-          <button
-            onClick={() => setMotorMode('connected_hardware')}
-            className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors flex items-center gap-1 ${
-              motorMode === 'connected_hardware' ? 'bg-white text-blue-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <Cpu className="w-3 h-3 text-blue-600" />
-            <span>{isHi ? 'कनेक्टेड हार्डवेयर' : 'Hardware IoT'}</span>
-          </button>
+
+          {/* Mode Switcher */}
+          <div className="flex items-center bg-stone-200/80 p-0.5 rounded-lg text-xs font-bold">
+            <button
+              onClick={() => setMotorMode('simulated')}
+              className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
+                motorMode === 'simulated' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              {isHi ? 'सिम्युलेटेड मोटर' : 'Simulated Motor'}
+            </button>
+            <button
+              onClick={() => setMotorMode('connected_hardware')}
+              className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors flex items-center gap-1 ${
+                motorMode === 'connected_hardware' ? 'bg-white text-blue-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Cpu className="w-3 h-3 text-blue-600" />
+              <span>{isHi ? 'कनेक्टेड हार्डवेयर' : 'Hardware IoT'}</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Problem 2.2 Solver: Software Decision Support vs Physical IoT Barriers */}
+      {showIotComparison && (
+        <div className="p-4 bg-blue-50/70 border-b border-blue-200 text-xs text-stone-700 space-y-2 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div className="font-extrabold text-blue-950 flex items-center gap-1.5 text-sm">
+              <Cpu className="w-4 h-4 text-blue-700" />
+              <span>Problem 2.2 समाधान: सीमित फील्ड मॉनिटरिंग बनाम सॉफ्टवेयर निर्णय सहायता</span>
+            </div>
+            <span className="text-[10px] bg-blue-200/80 text-blue-900 font-bold px-2 py-0.5 rounded">
+              Zero-Field-Hardware Model
+            </span>
+          </div>
+
+          <p className="text-xs leading-relaxed text-stone-700">
+            भौतिक कृषि IoT (Physical IoT) प्रणालियां मूल्यवान हो सकती हैं, किंतु वे छोटे व सीमांत किसानों के लिए <strong>खरीद (Purchase), स्थापना (Installation), अंशांकन (Calibration), नियमित रखरखाव (Maintenance)</strong> और <strong>ग्रामीण कनेक्टिविटी</strong> की वास्तविक लागत व बाधाएं लाती हैं। इसके अतिरिक्त उन्हें <strong>धूल (Dust), अत्यधिक गर्मी (Heat)</strong> और <strong>अनियमित बिजली (Intermittent Power)</strong> के वातावरण में विश्वसनीय रूप से कार्य करना होता है।
+          </p>
+
+          <div className="bg-white p-3 rounded-xl border border-blue-200 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+            <div>
+              <span className="font-bold text-stone-900 block mb-0.5">🌾 किसान साथी का सॉफ्टवेयर समाधान:</span>
+              <p className="text-stone-600">
+                खुले उपग्रह व जलवैज्ञानिक मॉडल (ERA5-Land री-एनालिसिस) द्वारा 0-6 सेमी व 7-28 सेमी गहराई में मिट्टी की नमी का सटीक आभासी अनुमान — बिना किसी महंगे इन-फील्ड सेंसर के।
+              </p>
+            </div>
+            <div>
+              <span className="font-bold text-stone-900 block mb-0.5">⚖️ संतुलित दृष्टिकोण (No-Claim Policy):</span>
+              <p className="text-stone-600">
+                हम किसी विशिष्ट सेंसर के मूल्य या विफलता दर का कोई दावा नहीं करते। यह छोटे किसानों के लिए व्यावहारिक व सुलभ प्रथम-चरण (First Step) डिजिटल निर्णय सहायता है।
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {motorMode === 'connected_hardware' && (
         <div className="p-3 bg-blue-50 border-b border-blue-200 text-xs text-blue-900 flex items-center justify-between">
@@ -376,30 +423,54 @@ export const VirtualSoilTwin: React.FC<VirtualSoilTwinProps> = ({
               </div>
             </div>
 
-            {/* Savings Callout Display */}
-            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-stone-200/60">
-              <div className="p-2.5 bg-blue-50/80 rounded-lg border border-blue-200/80">
+            {/* Savings Callout Display (Problem 2.3: Inefficient Irrigation Solver) */}
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-stone-200/60">
+              <div className="p-2.5 bg-blue-50/80 rounded-lg border border-blue-200/80 text-center">
                 <span className="text-[10px] text-blue-700 block font-medium">
                   {isHi ? 'अनुमानित जल बचत' : 'Water Conserved'}
                 </span>
-                <span className="text-base sm:text-lg font-black text-blue-900">
+                <span className="text-sm sm:text-base font-black text-blue-900 block">
                   {dynamicLitersSaved.toLocaleString('en-IN')} L
                 </span>
                 {simulation.isActive && (
-                  <span className="text-[9px] text-blue-600 block mt-0.5">*डेमो परिदृश्य: 350L बचत</span>
+                  <span className="text-[9px] text-blue-600 block mt-0.5">*डेमो: 350L</span>
                 )}
               </div>
 
-              <div className="p-2.5 bg-emerald-50/80 rounded-lg border border-emerald-200/80">
+              <div className="p-2.5 bg-emerald-50/80 rounded-lg border border-emerald-200/80 text-center">
                 <span className="text-[10px] text-emerald-700 block font-medium">
                   {isHi ? 'डीजल व्यय बचत' : 'Fuel Cost Avoided'}
                 </span>
-                <span className="text-base sm:text-lg font-black text-emerald-900">
+                <span className="text-sm sm:text-base font-black text-emerald-900 block">
                   ₹ {dynamicInrSaved.toLocaleString('en-IN')}
                 </span>
                 {simulation.isActive && (
-                  <span className="text-[9px] text-emerald-600 block mt-0.5">*डेमो परिदृश्य: ₹140 बचत</span>
+                  <span className="text-[9px] text-emerald-600 block mt-0.5">*डेमो: ₹140</span>
                 )}
+              </div>
+
+              <div className="p-2.5 bg-purple-50/80 rounded-lg border border-purple-200/80 text-center">
+                <span className="text-[10px] text-purple-700 block font-medium">
+                  {isHi ? 'किसान श्रम बचत' : 'Labour Saved'}
+                </span>
+                <span className="text-sm sm:text-base font-black text-purple-900 block">
+                  {isAutoOff ? '4 घंटे' : '0 घंटे'}
+                </span>
+                <span className="text-[9px] text-purple-600 block mt-0.5">{isHi ? 'नलकूप चक्कर से मुक्ति' : 'Physical visits'}</span>
+              </div>
+            </div>
+
+            {/* Problem 2.3 Safeguard: Nutrient Leaching & Disease Risk */}
+            <div className="mt-2.5 p-2.5 rounded-lg bg-amber-50/90 border border-amber-200 text-[11px] text-amber-950 flex items-start gap-2">
+              <span className="text-sm shrink-0">🛡️</span>
+              <div>
+                <span className="font-bold block">
+                  {isHi ? 'पोषक तत्व व जड़ सुरक्षा (Nutrient Leaching Protection):' : 'Nutrient Leaching & Root Health:'}
+                </span>
+                <span className="opacity-90">
+                  {soilState.nutrientLeachingMessageHi ||
+                    'वर्षा से पूर्व सिंचाई रोकने से खेत में डाला गया यूरिया व नाइट्रोजन जड़ क्षेत्र से नीचे रिसने (Leaching) से बचता है, और अति-नमी से होने वाले जड़ गलन रोग की रोकथाम होती है।'}
+                </span>
               </div>
             </div>
           </div>

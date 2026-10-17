@@ -28,6 +28,7 @@ import {
 import {
   CropConfig,
   CurrentWeather,
+  HarvestSafetyScore,
   Language,
   LocationConfig,
   MandiDecision,
@@ -54,7 +55,11 @@ interface FarmerFriendlyHubProps {
     verdict: string;
     verdictHi: string;
     explanationHi: string;
+    reSowingRiskCostInr?: number;
+    washoutRotRiskHi?: string;
   };
+  harvestScore?: HarvestSafetyScore;
+  selectedStageId?: string;
   mandiData: MandiRecord;
   mandiDecision: MandiDecision;
   onUpdateMotorState: (state: SoilTwinState['motorState']) => void;
@@ -71,6 +76,8 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
   soilState,
   simulation,
   sowingScore,
+  harvestScore,
+  selectedStageId,
   mandiData,
   mandiDecision: _mandiDecision,
   onUpdateMotorState,
@@ -79,6 +86,11 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
   onScrollToModule,
 }) => {
   const isHi = language === 'hi';
+
+  // Toggle between Sowing and Harvesting in Decision Card 1
+  const [decision1Tab, setDecision1Tab] = useState<'sowing' | 'harvesting'>(
+    selectedStageId === 'maturity' || selectedStageId === 'harvest' ? 'harvesting' : 'sowing'
+  );
 
   // Local interactive state for quick calculator
   const [quickQuintals, setQuickQuintals] = useState<number>(50);
@@ -282,20 +294,24 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
 
       {/* 2. Five Big Decision Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-        {/* CARD 1: बुवाई / कटाई का फैसला */}
+        {/* CARD 1: बुवाई / कटाई का फैसला (Problem 2.1 Solver) */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-stone-200/80 shadow-md hover:shadow-lg transition-all flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xl">
-                  🌾
+                  {decision1Tab === 'harvesting' ? '🌾' : '🌱'}
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block">
-                    {isHi ? 'पहला फैसला • बुवाई व मौसम' : 'Decision 1 • Sowing & Weather'}
+                  <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                    {decision1Tab === 'harvesting'
+                      ? (isHi ? 'पहला फैसला • कटाई व दाना गुणवत्ता' : 'Decision 1 • Harvest & Grain Quality')
+                      : (isHi ? 'पहला फैसला • बुवाई व मौसम' : 'Decision 1 • Sowing & Weather')}
                   </span>
                   <h3 className="text-lg sm:text-xl font-black text-stone-900">
-                    {isHi ? 'क्या आज खेत में बुवाई करें?' : 'Should You Sow Today?'}
+                    {decision1Tab === 'harvesting'
+                      ? (isHi ? 'क्या आज खेत में कटाई करें?' : 'Should You Harvest Today?')
+                      : (isHi ? 'क्या आज खेत में बुवाई करें?' : 'Should You Sow Today?')}
                   </h3>
                 </div>
               </div>
@@ -303,9 +319,13 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
               <button
                 onClick={() =>
                   onSpeakAdvisory(
-                    isSowingFavorable
+                    decision1Tab === 'harvesting'
+                      ? simulation.isActive
+                        ? 'सावधान! कटाई तुरंत रोकें। भारी बारिश से दाना भीगने पर फफूंद लगेगी और मंडी में ₹150 से ₹300 तक भाव कट जाएगा।'
+                        : 'कटाई के लिए मौसम अनुकूल है। आगामी 3 दिन धूप खिली रहेगी।'
+                      : isSowingFavorable
                       ? `बुवाई का सही समय है। सुरक्षा स्कोर ${sowingScore.totalScore} प्रतिशत है। अगले तीन दिन तक बारिश का खतरा नहीं है।`
-                      : `सावधान! अभी बुवाई रोकें। बारिश या मौसम के कारण बीज खराब होने का खतरा है।`
+                      : `सावधान! अभी बुवाई रोकें। बारिश के कारण बीज बहने और ₹2,400 प्रति एकड़ का दोबारा बुवाई खर्च होने का खतरा है।`
                   )
                 }
                 className="p-2.5 rounded-xl bg-stone-100 hover:bg-emerald-100 text-stone-700 hover:text-emerald-800 transition-colors cursor-pointer"
@@ -315,57 +335,125 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
               </button>
             </div>
 
+            {/* Sub-tabs: बुवाई vs कटाई */}
+            <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-xl text-xs font-bold mb-3 w-fit">
+              <button
+                onClick={() => setDecision1Tab('sowing')}
+                className={`px-3 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1 ${
+                  decision1Tab === 'sowing' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>🌱</span>
+                <span>{isHi ? 'बुवाई फैसला' : 'Sowing'}</span>
+              </button>
+              <button
+                onClick={() => setDecision1Tab('harvesting')}
+                className={`px-3 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1 ${
+                  decision1Tab === 'harvesting' ? 'bg-white text-amber-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>🌾</span>
+                <span>{isHi ? 'कटाई फैसला (दाना सुरक्षा)' : 'Harvest (Grain Quality)'}</span>
+              </button>
+            </div>
+
             {/* Verdict Badge */}
-            <div
-              className={`p-4 rounded-2xl mb-4 border-2 ${
-                isSowingFavorable
-                  ? 'bg-emerald-50 border-emerald-400 text-emerald-900'
-                  : isSowingCaution
-                  ? 'bg-amber-50 border-amber-400 text-amber-900'
-                  : 'bg-red-50 border-red-400 text-red-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                {isSowingFavorable ? (
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-7 h-7 text-red-600 shrink-0" />
-                )}
-                <div>
-                  <div className="text-lg sm:text-xl font-extrabold leading-tight">
-                    {simulation.isActive
-                      ? isHi
-                        ? '🔴 नहीं! बुवाई तुरंत रोकें (खतरा)'
-                        : '🔴 DO NOT SOW! (High Risk)'
-                      : isSowingFavorable
-                      ? isHi
-                        ? '🟢 हाँ, आज बुवाई के लिए उत्तम दिन है!'
-                        : '🟢 YES, Highly Favorable for Sowing!'
-                      : isHi
-                      ? '🟡 सावधानी से निर्णय लें (मध्यम जोखिम)'
-                      : '🟡 Exercise Caution (Moderate Risk)'}
-                  </div>
-                  <div className="text-xs font-bold mt-0.5 opacity-90">
-                    {isHi ? `बुवाई सुरक्षा स्कोर: ${sowingScore.totalScore} / 100` : `Safety Score: ${sowingScore.totalScore} / 100`}
+            {decision1Tab === 'harvesting' ? (
+              <div
+                className={`p-4 rounded-2xl mb-4 border-2 ${
+                  simulation.isActive || (harvestScore?.totalScore || 85) < 50
+                    ? 'bg-red-50 border-red-400 text-red-900'
+                    : (harvestScore?.totalScore || 85) >= 75
+                    ? 'bg-amber-50 border-amber-400 text-amber-950'
+                    : 'bg-amber-50 border-amber-300 text-amber-900'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {simulation.isActive ? (
+                    <AlertTriangle className="w-7 h-7 text-red-600 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="w-7 h-7 text-amber-600 shrink-0" />
+                  )}
+                  <div>
+                    <div className="text-lg sm:text-xl font-extrabold leading-tight">
+                      {simulation.isActive
+                        ? isHi
+                          ? '🔴 नहीं! कटाई तुरंत रोकें (गीले मौसम का खतरा)'
+                          : '🔴 DO NOT HARVEST! (Wet Weather Danger)'
+                        : isHi
+                        ? '🟢 हाँ, कटाई व गहाई के लिए धूप अनुकूल है'
+                        : '🟢 YES, Safe Sunlit Harvest Window'}
+                    </div>
+                    <div className="text-xs font-bold mt-0.5 opacity-90">
+                      {isHi ? `कटाई सुरक्षा स्कोर: ${harvestScore?.totalScore ?? 85} / 100 • धूप खिली रहने की संभावना` : `Harvest Safety Score: ${harvestScore?.totalScore ?? 85} / 100`}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <p className="mt-2.5 text-xs sm:text-sm font-medium leading-relaxed">
-                {simulation.isActive
-                  ? isHi
-                    ? '85 मिमी भारी बारिश से बीज सड़ने और बहने का गंभीर खतरा है। खेत में जलभराव रोकें।'
-                    : 'Severe 85mm deluge will cause seed rot and run-off. Clear field drains immediately.'
-                  : isHi
-                  ? 'अगले 3 दिनों तक मौसम पूरी तरह साफ रहेगा। मिट्टी का तापमान 21.6°C अंकुरण के लिए एकदम सही है।'
-                  : 'Clear skies for next 3 days. Soil temperature of 21.6°C is ideal for seedling emergence.'}
-              </p>
-            </div>
+                <p className="mt-2.5 text-xs sm:text-sm font-medium leading-relaxed">
+                  {simulation.isActive
+                    ? isHi
+                      ? '⚠️ 85 मिमी भारी बारिश में कटाई करने से दाने में नमी > 14% हो जाएगी, फफूंद व चमक खराब होगी। मंडी में ₹150–₹300/क्विंटल कटौती से बचने के लिए कटाई स्थगित रखें।'
+                      : 'Severe rain will push grain moisture >14%, causing mold and Mandi discount of ₹150-₹300/q. Halt harvesting and cover stored crop.'
+                    : isHi
+                    ? 'अगले 3 दिनों तक धूप खिली रहेगी। दानों में 10-12% सुरक्षित नमी रहेगी और उच्च ग्रेड का भाव मिलेगा।'
+                    : 'Clear dry weather for next 3 days ensures optimal grain moisture (10-12%) and premium grade price.'}
+                </p>
+              </div>
+            ) : (
+              <div
+                className={`p-4 rounded-2xl mb-4 border-2 ${
+                  isSowingFavorable
+                    ? 'bg-emerald-50 border-emerald-400 text-emerald-900'
+                    : isSowingCaution
+                    ? 'bg-amber-50 border-amber-400 text-amber-900'
+                    : 'bg-red-50 border-red-400 text-red-900'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {isSowingFavorable ? (
+                    <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-7 h-7 text-red-600 shrink-0" />
+                  )}
+                  <div>
+                    <div className="text-lg sm:text-xl font-extrabold leading-tight">
+                      {simulation.isActive
+                        ? isHi
+                          ? '🔴 नहीं! बुवाई तुरंत रोकें (बीज सड़ने का खतरा)'
+                          : '🔴 DO NOT SOW! (High Risk of Seed Rot)'
+                        : isSowingFavorable
+                        ? isHi
+                          ? '🟢 हाँ, आज बुवाई के लिए उत्तम दिन है!'
+                          : '🟢 YES, Highly Favorable for Sowing!'
+                        : isHi
+                        ? '🟡 सावधानी से निर्णय लें (मध्यम जोखिम)'
+                        : '🟡 Exercise Caution (Moderate Risk)'}
+                    </div>
+                    <div className="text-xs font-bold mt-0.5 opacity-90">
+                      {isHi ? `बुवाई सुरक्षा स्कोर: ${sowingScore.totalScore} / 100` : `Safety Score: ${sowingScore.totalScore} / 100`}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mt-2.5 text-xs sm:text-sm font-medium leading-relaxed">
+                  {simulation.isActive
+                    ? isHi
+                      ? '⚠️ 85 मिमी भारी बारिश से बीज बहने व सड़ने का गंभीर खतरा है! बुवाई टालने से प्रति एकड़ लगभग ₹2,400 का दोबारा बुवाई (Re-sowing) खर्च बचेगा।'
+                      : 'Deluge will wash out and rot seeds! Pausing sowing protects ~₹2,400/acre in re-sowing seed and tillage costs.'
+                    : isHi
+                    ? 'अगले 3 दिनों तक मौसम पूरी तरह साफ रहेगा। मिट्टी का तापमान 21.6°C अंकुरण के लिए एकदम सही है।'
+                    : 'Clear skies for next 3 days. Soil temperature of 21.6°C is ideal for seedling emergence.'}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 flex items-center justify-between border-t border-stone-100">
             <span className="text-xs text-stone-500 font-medium">
-              {isHi ? '10 साल के मौसम रिकॉर्ड पर आधारित' : 'Based on 10-Year Climate Baseline'}
+              {decision1Tab === 'harvesting'
+                ? (isHi ? 'धूप व वर्षा पूर्वानुमान पर आधारित' : 'Based on rain & humidity forecast')
+                : (isHi ? '10 साल के मौसम रिकॉर्ड पर आधारित' : 'Based on 10-Year Climate Baseline')}
             </span>
             <button
               onClick={() => onScrollToModule('module-weather-sowing')}
@@ -377,7 +465,7 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
           </div>
         </div>
 
-        {/* CARD 2: नलकूप / ट्यूबवेल मोटर फैसला */}
+        {/* CARD 2: नलकूप / ट्यूबवेल मोटर फैसला (Problem 2.3 Solver) */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-stone-200/80 shadow-md hover:shadow-lg transition-all flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -387,7 +475,7 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block">
-                    {isHi ? 'दूसरा फैसला • सिंचाई व मोटर' : 'Decision 2 • Tubewell & Irrigation'}
+                    {isHi ? 'दूसरा फैसला • सिंचाई, यूरिया व श्रम' : 'Decision 2 • Irrigation & Leaching'}
                   </span>
                   <h3 className="text-lg sm:text-xl font-black text-stone-900">
                     {isHi ? 'क्या आज ट्यूबवेल मोटर चलाएं?' : 'Should You Run the Motor?'}
@@ -399,7 +487,7 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
                 onClick={() =>
                   onSpeakAdvisory(
                     isMotorOffRecommended
-                      ? `आज नलकूप मोटर बंद रखें। मिट्टी की जड़ में 62 प्रतिशत नमी मौजूद है। मोटर बंद रखने से ₹427 का डीजल बचेगा।`
+                      ? `आज नलकूप मोटर बंद रखें। मिट्टी की जड़ में 62 प्रतिशत नमी मौजूद है। मोटर बंद रखने से ₹427 का डीजल और 4 घंटे का शारीरिक श्रम बचेगा, साथ ही यूरिया खाद का रिसाव रुकेगा।`
                       : `आज हल्की सिंचाई की जा सकती है।`
                   )
                 }
@@ -431,7 +519,7 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
                       : '🟢 Motor Can Run'}
                   </div>
                   <div className="text-xs font-bold mt-0.5 opacity-90">
-                    {isHi ? 'जड़ क्षेत्र में नमी: 62% (पर्याप्त)' : 'Root Zone Moisture: 62% (Optimal)'}
+                    {isHi ? 'जड़ क्षेत्र में नमी: 62% (पर्याप्त) • 4 घंटे श्रम व डीजल की बचत' : 'Root Zone Moisture: 62% • Diesel & Labour Saved'}
                   </div>
                 </div>
               </div>
@@ -439,11 +527,11 @@ export const FarmerFriendlyHub: React.FC<FarmerFriendlyHubProps> = ({
               <p className="mt-2.5 text-xs sm:text-sm font-medium leading-relaxed">
                 {simulation.isActive
                   ? isHi
-                    ? 'अतिवृष्टि से जलभराव रोकने हेतु मोटर को स्वतः AUTO-OFF अनुशंसित किया गया है।'
-                    : 'System recommends AUTO-OFF to prevent crop waterlogging from 85mm deluge.'
+                    ? 'अतिवृष्टि से जलभराव व यूरिया रिसाव (Nutrient Leaching) रोकने हेतु मोटर स्वतः AUTO-OFF अनुशंसित है।'
+                    : 'System recommends AUTO-OFF to prevent nutrient leaching, root rot, and flooding from 85mm deluge.'
                   : isHi
-                  ? 'जमीन की 7-28 सेमी गहराई में पर्याप्त गीलापन है। बेवजह नलकूप चलाकर बिजली और डीजल खर्च न करें।'
-                  : 'Moisture in active 7-28cm root depth is sufficient. Running pump now wastes diesel and water.'}
+                  ? 'जमीन की 7-28 सेमी गहराई में पर्याप्त गीलापन है। बेवजह नलकूप चलाकर बिजली, डीजल और 4 घंटे का श्रम व्यर्थ न करें; अति-सिंचाई से खाद का रिसाव भी रुकता है।'
+                  : 'Root zone moisture is sufficient. Running pump now wastes diesel, electricity, and labour while leaching soil nutrients.'}
               </p>
             </div>
 

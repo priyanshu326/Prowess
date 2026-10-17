@@ -33,6 +33,7 @@ import {
   CropConfig,
   CurrentWeather,
   FarmProfile,
+  HarvestSafetyScore,
   Language,
   LocationConfig,
   SimulationState,
@@ -54,7 +55,11 @@ interface ClimateShieldProps {
     verdict: string;
     verdictHi: string;
     explanationHi: string;
+    reSowingRiskCostInr?: number;
+    washoutRotRiskHi?: string;
   };
+  harvestScore?: HarvestSafetyScore;
+  selectedStageId?: string;
   accumulatedGdd: number;
   simulation: SimulationState;
   lowBandwidthMode: boolean;
@@ -70,6 +75,8 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
   calendarDays,
   climateComparison,
   sowingScore,
+  harvestScore,
+  selectedStageId,
   accumulatedGdd,
   simulation,
   lowBandwidthMode,
@@ -78,6 +85,9 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
   const isHi = language === 'hi';
   const [showMethodology, setShowMethodology] = useState(false);
   const [viewDaysCount, setViewDaysCount] = useState<7 | 14>(14);
+  const [focusMode, setFocusMode] = useState<'sowing' | 'harvesting'>(
+    selectedStageId === 'maturity' || selectedStageId === 'harvest' ? 'harvesting' : 'sowing'
+  );
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<CalendarDayAdvisory | null>(
     calendarDays[0] || null
   );
@@ -111,7 +121,7 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
   return (
     <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden flex flex-col">
       {/* Module Header */}
-      <div className="p-4 sm:p-5 border-b border-stone-100 bg-stone-50/60 flex flex-wrap items-center justify-between gap-2">
+      <div className="p-4 sm:p-5 border-b border-stone-100 bg-stone-50/60 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
@@ -119,18 +129,44 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
             </span>
             <h2 className="font-bold text-base sm:text-lg text-stone-900">
               {isHi
-                ? 'फसल बुवाई सुरक्षा (Fasal Buvai Suraksha)'
-                : 'Fasal Buvai Suraksha — Sowing & Weather Intelligence'}
+                ? 'फसल बुवाई एवं कटाई सुरक्षा (Sowing & Harvest Shield)'
+                : 'Sowing & Harvesting Climate Shield — Weather Intelligence'}
             </h2>
           </div>
           <p className="text-xs text-stone-500 mt-0.5">
             {isHi
-              ? 'बुवाई का सही समय जानें और बदलते मौसम के लिए तैयार रहें (Know the right time to sow and prepare).'
-              : 'Know the right time to sow and prepare for changing weather.'}
+              ? 'बेमौसम बारिश में बीज बहने/सड़ने व गीले मौसम में कटाई से दाना खराब होने का जोखिम प्रबंधन (Problem 2.1)'
+              : 'Protect germination from seed-washout & prevent grain quality damage in wet harvest weather.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center flex-wrap gap-2 text-xs">
+          {/* Sowing vs Harvesting Focus Switcher */}
+          <div className="bg-emerald-100/70 p-0.5 rounded-xl flex items-center font-bold text-[11px] border border-emerald-300/80">
+            <button
+              onClick={() => setFocusMode('sowing')}
+              className={`px-2.5 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1 ${
+                focusMode === 'sowing'
+                  ? 'bg-emerald-800 text-white shadow-xs'
+                  : 'text-emerald-950 hover:bg-emerald-200/60'
+              }`}
+            >
+              <span>🌱</span>
+              <span>{isHi ? 'बुवाई सुरक्षा' : 'Sowing'}</span>
+            </button>
+            <button
+              onClick={() => setFocusMode('harvesting')}
+              className={`px-2.5 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1 ${
+                focusMode === 'harvesting'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-stone-700 hover:bg-amber-100'
+              }`}
+            >
+              <span>🌾</span>
+              <span>{isHi ? 'कटाई सुरक्षा' : 'Harvesting'}</span>
+            </button>
+          </div>
+
           {/* 7-day vs 14-day View Switcher */}
           <div className="bg-stone-200/80 p-0.5 rounded-lg flex items-center font-bold text-[11px]">
             <button
@@ -255,16 +291,26 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
           </div>
         </div>
 
-        {/* Sowing Safety Score Gauge */}
+        {/* Dynamic Sowing / Harvest Safety Score Gauge */}
         <div className={`p-3 rounded-xl border shadow-2xs ${
-          sowingScore.totalScore >= 75
+          focusMode === 'harvesting'
+            ? (harvestScore?.totalScore || 85) >= 75
+              ? 'bg-amber-50/70 border-amber-300'
+              : (harvestScore?.totalScore || 85) >= 50
+              ? 'bg-amber-100/70 border-amber-400'
+              : 'bg-red-50/70 border-red-300'
+            : sowingScore.totalScore >= 75
             ? 'bg-emerald-50/70 border-emerald-300'
             : sowingScore.totalScore >= 50
             ? 'bg-amber-50/70 border-amber-300'
             : 'bg-red-50/70 border-red-300'
         }`}>
           <div className="flex items-center justify-between text-stone-500 text-xs mb-1">
-            <span className="font-bold">{isHi ? 'बुवाई स्कोर' : 'Sowing Score'}</span>
+            <span className="font-bold">
+              {focusMode === 'harvesting'
+                ? (isHi ? 'कटाई सुरक्षा स्कोर' : 'Harvest Score')
+                : (isHi ? 'बुवाई सुरक्षा स्कोर' : 'Sowing Score')}
+            </span>
             <button
               onClick={onOpenExplainableModal}
               title="फॉर्मूला देखें"
@@ -275,41 +321,70 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
           </div>
           <div className="flex items-baseline gap-1">
             <span className={`text-2xl font-black ${
-              sowingScore.totalScore >= 75
+              focusMode === 'harvesting'
+                ? (harvestScore?.totalScore || 85) >= 75
+                  ? 'text-amber-900'
+                  : 'text-red-700'
+                : sowingScore.totalScore >= 75
                 ? 'text-emerald-800'
                 : sowingScore.totalScore >= 50
                 ? 'text-amber-700'
                 : 'text-red-700'
             }`}>
-              {sowingScore.totalScore}
+              {focusMode === 'harvesting' ? (harvestScore?.totalScore ?? 85) : sowingScore.totalScore}
             </span>
             <span className="text-xs text-stone-500 font-bold">/ 100</span>
           </div>
           <div className="text-[10px] font-bold mt-0.5 truncate text-stone-700">
-            {sowingScore.verdictHi.split(' ')[0]}
+            {focusMode === 'harvesting'
+              ? (harvestScore?.verdictHi.split(' ')[0] || 'उत्तम')
+              : sowingScore.verdictHi.split(' ')[0]}
           </div>
         </div>
       </div>
 
-      {/* Sowing Window & Estimated Harvest Window Banner */}
-      <div className="px-4 py-2.5 bg-stone-100/60 border-b border-stone-200/60 flex flex-wrap items-center justify-between text-xs gap-3">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-stone-800">
-            {isHi ? 'अनुशंसित बुवाई अवधि:' : 'Recommended Sowing Window:'}
+      {/* Problem 2.1 Explicit Safeguard Alert Banner: Seed Washout vs Wet Harvest Grain Quality */}
+      <div className={`px-4 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-3 ${
+        focusMode === 'harvesting'
+          ? (harvestScore?.totalScore || 85) < 60 || simulation.isActive
+            ? 'bg-red-50 border-red-200 text-red-900'
+            : 'bg-amber-50/80 border-amber-200 text-amber-950'
+          : sowingScore.totalScore < 60 || simulation.isActive
+          ? 'bg-red-50 border-red-200 text-red-900'
+          : 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+      }`}>
+        <div className="flex items-start sm:items-center gap-2">
+          <span className="text-base shrink-0">
+            {focusMode === 'harvesting' ? '🌾' : '🌱'}
           </span>
-          <span className="bg-emerald-100 text-emerald-900 font-extrabold px-2 py-0.5 rounded-md border border-emerald-300">
-            {sowingWindow.window}
-          </span>
-          <span className="text-[11px] text-stone-500 hidden sm:inline">({sowingWindow.note})</span>
+          <div>
+            <span className="font-extrabold uppercase tracking-wide text-[10px] block opacity-80">
+              {focusMode === 'harvesting'
+                ? (isHi ? 'Problem 2.1: कटाई व गीले मौसम का दाना गुणवत्ता संरक्षण' : 'Problem 2.1: Harvest & Grain Quality Protection')
+                : (isHi ? 'Problem 2.1: बेमौसम वर्षा व बीज बहाव/सड़न रोकथाम' : 'Problem 2.1: Sowing & Seed Washout Protection')}
+            </span>
+            <p className="text-xs font-semibold leading-relaxed mt-0.5">
+              {focusMode === 'harvesting'
+                ? simulation.isActive
+                  ? '⚠️ भारी वर्षा अलर्ट: गीले मौसम में कटाई करने पर दाने में नमी > 14% पहुंचेगी, फफूंद व चमक खराब होगी। मंडी में ₹150–₹300/क्विंटल कटौती से बचने हेतु कटाई रोकें व कटी फसल ढंकें।'
+                  : harvestScore?.grainQualityRiskHi || 'आगामी 3 दिन धूप खिली रहेगी। पकी फसल की कटाई व गहाई सुरक्षित रूप से की जा सकती है।'
+                : simulation.isActive
+                ? '⚠️ बीज सुरक्षा चेतावनी: 85 मिमी भारी बारिश से बीज बहने या सड़ने का खतरा! बुवाई टालने से प्रति एकड़ लगभग ₹2,400 का दोबारा बुवाई (Re-sowing) खर्च बचाया जा सकता है।'
+                : sowingScore.washoutRotRiskHi || 'मौसम अनुकूल है। बीज के सही अंकुरण हेतु मिट्टी का तापमान व नमी आदर्श है।'}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-stone-800">
-            {isHi ? 'अनुमानित कटाई अवधि (GDD आधारित):' : 'Estimated Harvest Window:'}
-          </span>
-          <span className="bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-md border border-amber-300">
-            {estimatedHarvestWindow}
-          </span>
+        <div className="shrink-0 flex items-center gap-2 font-bold text-[11px]">
+          {focusMode === 'harvesting' ? (
+            <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-900 shadow-2xs">
+              धूप के सुरक्षित दिन: <strong>{harvestScore?.dryingWindowDays ?? 3} दिन</strong>
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-emerald-900 shadow-2xs">
+              अनुशंसित अवधि: <strong>{sowingWindow.window}</strong>
+            </span>
+          )}
         </div>
       </div>
 

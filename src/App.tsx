@@ -31,6 +31,7 @@ import {
 } from './types';
 import { SUPPORTED_LOCATIONS, CROP_CONFIGS } from './utils/cropConfig';
 import {
+  calculateHarvestSafetyScore,
   calculateSowingSafetyScore,
   evaluateDiseaseRisk,
   evaluateMandiDecision,
@@ -182,7 +183,29 @@ export default function App() {
     );
   }, [simulation.isActive, simulation.simulatedRainfallMm, soilState, currentWeather, selectedCrop]);
 
-  // Derived Motor Digital Twin Evaluation
+  // Derived Harvest Safety & Wet Weather Risk Score (Problem 2.1)
+  const harvestScore = useMemo(() => {
+    const effectiveRainMm = simulation.isActive ? simulation.simulatedRainfallMm : currentWeather.precipitationMm;
+    const effectiveRainProb = simulation.isActive ? 95 : 10;
+    const effectiveHumidity = simulation.isActive ? simulation.simulatedHumidityPct : currentWeather.relativeHumidity;
+    const effectiveWind = simulation.isActive ? simulation.simulatedWindSpeedKmh : currentWeather.windSpeedKmh;
+
+    const forecastDays = calendarDays.map((d) => ({
+      expectedRainMm: d.expectedRainMm,
+      rainProbabilityPct: d.rainProbabilityPct,
+    }));
+
+    return calculateHarvestSafetyScore(
+      effectiveRainMm,
+      effectiveRainProb,
+      effectiveHumidity,
+      effectiveWind,
+      selectedCrop,
+      forecastDays
+    );
+  }, [simulation, currentWeather, selectedCrop, calendarDays]);
+
+  // Derived Motor Digital Twin Evaluation (Problem 2.3: Stage-Aware & Leaching Protection)
   const motorTwinEval = useMemo(() => {
     return evaluateMotorDigitalTwin(
       {
@@ -192,9 +215,10 @@ export default function App() {
       currentWeather.precipitationMm,
       simulation,
       selectedCrop,
-      soilState.motorState
+      soilState.motorState,
+      selectedStageId
     );
-  }, [soilState, currentWeather, simulation, selectedCrop]);
+  }, [soilState, currentWeather, simulation, selectedCrop, selectedStageId]);
 
   // Sync motor auto-off state when evaluation updates
   useEffect(() => {
@@ -206,6 +230,10 @@ export default function App() {
         irrigationReasonHi: motorTwinEval.reasonHi,
         estimatedLitersSaved: motorTwinEval.litersSaved,
         estimatedInrSaved: motorTwinEval.inrSaved,
+        estimatedLabourHoursSaved: motorTwinEval.estimatedLabourHoursSaved,
+        nutrientLeachingRisk: motorTwinEval.nutrientLeachingRisk,
+        nutrientLeachingMessageHi: motorTwinEval.nutrientLeachingMessageHi,
+        rootDiseaseEncouragementRisk: motorTwinEval.rootDiseaseEncouragementRisk,
       }));
     }
   }, [motorTwinEval, simulation.isActive]);
@@ -459,6 +487,8 @@ export default function App() {
               soilState={soilState}
               simulation={simulation}
               sowingScore={sowingScore}
+              harvestScore={harvestScore}
+              selectedStageId={selectedStageId}
               mandiData={currentMandiRecord}
               mandiDecision={mandiDecision}
               onUpdateMotorState={(newState) =>
@@ -547,6 +577,7 @@ export default function App() {
                   calendarDays={calendarDays}
                   climateComparison={climateComparison}
                   sowingScore={sowingScore}
+                  harvestScore={harvestScore}
                   accumulatedGdd={480}
                   simulation={simulation}
                   lowBandwidthMode={lowBandwidthMode}
@@ -562,6 +593,7 @@ export default function App() {
                   soilState={soilState}
                   simulation={simulation}
                   nextRainfallMm={currentWeather.precipitationMm}
+                  selectedStageId={selectedStageId}
                   onUpdateMotorState={(newState) =>
                     setSoilState((prev) => ({ ...prev, motorState: newState }))
                   }
@@ -591,6 +623,7 @@ export default function App() {
                   simulation={simulation}
                   mandiDecision={mandiDecision}
                   lowBandwidthMode={lowBandwidthMode}
+                  location={selectedLocation}
                 />
               </div>
 

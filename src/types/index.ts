@@ -92,6 +92,18 @@ export interface CalendarDayAdvisory {
   gddAccumulated: number;
 }
 
+export interface HarvestSafetyScore {
+  totalScore: number; // 0-100
+  rainRiskScore: number;
+  humidityScore: number;
+  dryingWindowDays: number;
+  verdict: 'FAVORABLE' | 'CAUTION' | 'HIGH_RISK';
+  verdictHi: string;
+  explanationHi: string;
+  grainQualityRiskHi: string;
+  lossMitigationTipHi: string;
+}
+
 export interface SoilTwinState {
   shallowMoisturePct: number; // 0-6 cm
   rootZoneMoisturePct: number; // 7-28 cm
@@ -110,6 +122,25 @@ export interface SoilTwinState {
   dieselPriceInr: number;
   estimatedLitersSaved: number;
   estimatedInrSaved: number;
+  estimatedLabourHoursSaved?: number;
+  nutrientLeachingRisk?: 'low' | 'moderate' | 'high';
+  nutrientLeachingMessageHi?: string;
+  rootDiseaseEncouragementRisk?: 'low' | 'moderate' | 'high';
+}
+
+export interface MandiChannelComparison {
+  id: string;
+  channelName: string;
+  channelNameHi: string;
+  type: 'Local Mandi' | 'Distant Mandi' | 'FPO Direct' | 'Corporate Processor' | 'Govt MSP';
+  typeHi: string;
+  distanceKm: number;
+  transportCostPerQuintalInr: number;
+  grossPricePerQuintalInr: number;
+  netInHandPricePerQuintalInr: number; // Gross - Transport
+  qualityRequirementsHi: string;
+  paymentSpeedHi: string;
+  isRecommendedBestNet?: boolean;
 }
 
 export interface ClimateComparisonData {
