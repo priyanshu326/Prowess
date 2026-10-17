@@ -1,6 +1,6 @@
 {
-  "name": "Kisan Saathi - Sowing & Harvesting Risk Intelligence",
-  "description": "Zero-field-hardware agricultural risk intelligence platform for Indian farmers addressing Problem 2.1: Uncertain Sowing and Harvesting. Evaluates post-sowing washout, mold risk, and candidate windows.",
+  "name": "Remix Remix Remix Kisaan Sathi",
+  "description": "Zero-field-hardware, voice-first AI agricultural decision-support platform for Indian farmers: climate intelligence, virtual soil twin, AI crop doctor, and mandi price intelligence.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
