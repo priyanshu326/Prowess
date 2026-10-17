@@ -83,6 +83,7 @@ class OpenMeteoWeatherProvider(WeatherProvider):
                 "wind_speed_10m_max",
                 "wind_gusts_10m_max",
                 "relative_humidity_2m_mean",
+                "et0_fao_evapotranspiration",
                 "weather_code",
             ],
             "hourly": [
@@ -154,6 +155,11 @@ class OpenMeteoWeatherProvider(WeatherProvider):
                     wind_speed_max_kmh=float(daily_raw.get("wind_speed_10m_max", [10.0])[i] or 10.0),
                     wind_gusts_max_kmh=float(daily_raw.get("wind_gusts_10m_max", [0.0])[i] or 0.0),
                     relative_humidity_mean_pct=float(daily_raw.get("relative_humidity_2m_mean", [60.0])[i] or 60.0),
+                    et0_fao_evapotranspiration=(
+                        float(daily_raw.get("et0_fao_evapotranspiration")[i])
+                        if daily_raw.get("et0_fao_evapotranspiration") and daily_raw["et0_fao_evapotranspiration"][i] is not None
+                        else 4.0
+                    ),
                     weather_code=w_code,
                     weather_description=WMO_DESCRIPTIONS.get(w_code, "Partly cloudy"),
                 )

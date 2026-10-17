@@ -1,13 +1,145 @@
 """
-Database repository for persistence and retrieval of analyses and farmer feedback.
+Database repository for SmartKisan: Farm Profiles, Field Observations,
+Risk Assessment logs, and Farmer Feedback.
 """
 
+import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from .models import RiskAnalysisRecord, FarmerFeedbackRecord
+from .models import (
+    FarmProfileRecord,
+    FieldObservationRecord,
+    RiskAssessmentLog,
+    RiskAnalysisRecord,
+    FarmerFeedbackRecord,
+)
+from ..schemas.smartkisan import FarmProfileCreate, ObservationCreate, SingleRiskAssessment
 from ..schemas.feedback import FarmerFeedbackCreate
 
 
+# -----------------------------------------------------------------------------
+# Farm Profile CRUD
+# -----------------------------------------------------------------------------
+def save_farm_profile(
+    db: Session,
+    profile_in: FarmProfileCreate,
+) -> FarmProfileRecord:
+    farm_id = profile_in.farm_id or f"farm_{profile_in.crop_name}_{int(datetime.datetime.utcnow().timestamp())}"
+    existing = db.query(FarmProfileRecord).filter(FarmProfileRecord.farm_id == farm_id).first()
+
+    if existing:
+        existing.farmer_name = profile_in.farmer_name or existing.farmer_name
+        existing.crop_name = profile_in.crop_name.lower().strip()
+        existing.latitude = profile_in.latitude
+        existing.longitude = profile_in.longitude
+        existing.village_district = profile_in.village_district
+        existing.soil_type = profile_in.soil_type.lower().strip()
+        existing.sowing_date = profile_in.sowing_date
+        existing.irrigation_method = profile_in.irrigation_method.lower().strip()
+        existing.field_area_acres = profile_in.field_area_acres or existing.field_area_acres
+        existing.updated_at = datetime.datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    new_profile = FarmProfileRecord(
+        farm_id=farm_id,
+        farmer_name=profile_in.farmer_name or "Kisan Brother",
+        crop_name=profile_in.crop_name.lower().strip(),
+        latitude=profile_in.latitude,
+        longitude=profile_in.longitude,
+        village_district=profile_in.village_district,
+        soil_type=profile_in.soil_type.lower().strip(),
+        sowing_date=profile_in.sowing_date,
+        irrigation_method=profile_in.irrigation_method.lower().strip(),
+        field_area_acres=profile_in.field_area_acres or 2.0,
+    )
+    db.add(new_profile)
+    db.commit()
+    db.refresh(new_profile)
+    return new_profile
+
+
+def get_farm_profile(db: Session, farm_id: str) -> Optional[FarmProfileRecord]:
+    return db.query(FarmProfileRecord).filter(FarmProfileRecord.farm_id == farm_id).first()
+
+
+def list_farm_profiles(db: Session, limit: int = 50) -> List[FarmProfileRecord]:
+    return db.query(FarmProfileRecord).order_by(FarmProfileRecord.created_at.desc()).limit(limit).all()
+
+
+# -----------------------------------------------------------------------------
+# Field Observation CRUD
+# -----------------------------------------------------------------------------
+def save_field_observation(
+    db: Session,
+    obs_in: ObservationCreate,
+) -> FieldObservationRecord:
+    today_str = obs_in.observation_date or datetime.date.today().isoformat()
+    record = FieldObservationRecord(
+        farm_id=obs_in.farm_id,
+        observation_date=today_str,
+        crop_condition=obs_in.crop_condition,
+        last_irrigation_date=obs_in.last_irrigation_date,
+        last_irrigation_amount_mm=obs_in.last_irrigation_amount_mm,
+        visible_symptoms=obs_in.visible_symptoms,
+        soil_surface_status=obs_in.soil_surface_status,
+        farmer_notes=obs_in.farmer_notes,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def get_latest_observation(db: Session, farm_id: str) -> Optional[FieldObservationRecord]:
+    return (
+        db.query(FieldObservationRecord)
+        .filter(FieldObservationRecord.farm_id == farm_id)
+        .order_by(FieldObservationRecord.id.desc())
+        .first()
+    )
+
+
+def get_all_observations(db: Session, farm_id: str, limit: int = 15) -> List[FieldObservationRecord]:
+    return (
+        db.query(FieldObservationRecord)
+        .filter(FieldObservationRecord.farm_id == farm_id)
+        .order_by(FieldObservationRecord.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+# -----------------------------------------------------------------------------
+# Risk Assessment Logging
+# -----------------------------------------------------------------------------
+def log_risk_assessment(
+    db: Session,
+    assessment: SingleRiskAssessment,
+) -> RiskAssessmentLog:
+    log_entry = RiskAssessmentLog(
+        farm_id=assessment.farm_id,
+        crop_name=assessment.crop,
+        growth_stage=assessment.growth_stage,
+        days_after_sowing=assessment.days_after_sowing,
+        risk_type=assessment.risk_type,
+        risk_level=assessment.risk_level,
+        confidence=assessment.confidence,
+        evidence=assessment.evidence,
+        recommendation=assessment.recommendation,
+        data_sources=assessment.data_sources,
+        limitations=assessment.limitations,
+    )
+    db.add(log_entry)
+    db.commit()
+    db.refresh(log_entry)
+    return log_entry
+
+
+# -----------------------------------------------------------------------------
+# Existing Legacy Audit and Feedback Methods (Kept for backward compatibility)
+# -----------------------------------------------------------------------------
 def save_risk_analysis(
     db: Session,
     field_id: str,

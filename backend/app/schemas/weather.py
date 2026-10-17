@@ -15,6 +15,7 @@ class DailyWeatherForecast(BaseModel):
     wind_speed_max_kmh: float
     wind_gusts_max_kmh: Optional[float] = 0.0
     relative_humidity_mean_pct: Optional[float] = 60.0
+    et0_fao_evapotranspiration: Optional[float] = None
     weather_code: Optional[int] = 0
     weather_description: Optional[str] = "Mainly clear"
 
