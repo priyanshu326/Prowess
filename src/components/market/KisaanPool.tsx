@@ -11,8 +11,10 @@ import {
   ArrowRight,
   Truck,
   Check,
+  Phone,
+  MessageSquare,
 } from 'lucide-react';
-import { BuyerInquiry, CropConfig, FarmerPoolMember, Language } from '../../types';
+import { BuyerInquiry, CropConfig, CropId, FarmerPoolMember, Language } from '../../types';
 import { DEMO_BUYER_INQUIRIES, INITIAL_FARMER_POOL_MEMBERS } from '../../data/demoData';
 import { joinFarmerPool } from '../../services/apiClient';
 
@@ -27,22 +29,25 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
   const [members, setMembers] = useState<FarmerPoolMember[]>(INITIAL_FARMER_POOL_MEMBERS);
   const [showJoinModal, setShowJoinModal] = useState<boolean>(false);
   const [farmerName, setFarmerName] = useState<string>('राजेश कुमार (Rajesh Kumar)');
-  const [villageName, setVillageName] = useState<string>('करनाल सदर');
-  const [quantity, setQuantity] = useState<number>(15); // Default 15 to make 85 + 15 = 100 quintals!
+  const [selectedCropId, setSelectedCropId] = useState<CropId>(crop.id);
+  const [villageName, setVillageName] = useState<string>('करनाल सदर (संग्रहण केंद्र: कुंजपुरा)');
+  const [quantity, setQuantity] = useState<number>(15); // Default 15 quintals to hit 100 quintals
   const [qualityGrade, setQualityGrade] = useState<'A' | 'B'>('A');
+  const [contactPreference, setContactPreference] = useState<'SMS' | 'WhatsApp' | 'Call'>('SMS');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [celebrationSuccess, setCelebrationSuccess] = useState<boolean>(false);
 
   const targetQuintals = 100;
   const currentQuintals = members.reduce((sum, m) => sum + m.quantityQuintals, 0);
+  const remainingQuintals = Math.max(0, targetQuintals - currentQuintals);
   const progressPct = Math.min(100, Math.round((currentQuintals / targetQuintals) * 100));
   const isTargetReached = currentQuintals >= targetQuintals;
 
-  // Potential aggregation collective bonus:
-  // Baseline mandi rate ₹2,420 vs bulk buyer rate ₹2,540 (+₹120/quintal)
-  const baselineRate = 2420;
-  const bulkBuyerRate = 2540;
-  const collectiveBonus = Math.round(currentQuintals * (bulkBuyerRate - baselineRate));
+  // Intermediary cost comparison formula & assumptions
+  const baselineIntermediaryRate = 2420;
+  const bulkBuyerDirectRate = 2540;
+  const unitGain = bulkBuyerDirectRate - baselineIntermediaryRate;
+  const collectiveBonus = Math.round(currentQuintals * unitGain);
 
   const handleJoinPool = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +58,7 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
       await joinFarmerPool({
         name: farmerName,
         village: villageName,
-        crop: crop.id,
+        crop: selectedCropId,
         quantityQuintals: quantity,
         qualityGrade,
       });
@@ -62,7 +67,7 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
         id: String(Date.now()),
         name: farmerName,
         village: villageName,
-        crop: crop.id,
+        crop: selectedCropId,
         quantityQuintals: quantity,
         joinedAt: 'अभी-अभी (Just now)',
         qualityGrade,
@@ -72,12 +77,11 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
       setShowJoinModal(false);
       setCelebrationSuccess(true);
     } catch (_err) {
-      // Local fallback
       const newMember: FarmerPoolMember = {
         id: String(Date.now()),
         name: farmerName,
         village: villageName,
-        crop: crop.id,
+        crop: selectedCropId,
         quantityQuintals: quantity,
         joinedAt: 'अभी-अभी',
         qualityGrade,
@@ -101,13 +105,13 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
           <div>
             <h2 className="font-bold text-base sm:text-lg text-stone-900">
               {isHi
-                ? 'किसान पूल व एफपीओ कनेक्ट — "एक साथ बेहतर दाम"'
-                : 'Kisaan Pool & FPO Connect — "Together We Sell Better"'}
+                ? 'किसान पूल — मिलकर बेचें (Kisan Pool — Milkar Bechein)'
+                : 'Kisan Pool — Milkar Bechein (Collective Selling & FPO)'}
             </h2>
             <p className="text-xs text-stone-500">
               {isHi
-                ? 'छोटे किसानों की उपज एकत्रीकरण (Aggregation) और थोक खरीदारों से सीधा संपर्क'
-                : 'Village-level produce aggregation and verified institutional buyers'}
+                ? 'उपज एकत्रीकरण से मोलभाव की शक्ति बढ़ाएं और खरीदारों से जुड़ें (Combine produce, improve bargaining).'
+                : 'Combine produce, improve bargaining opportunities, and connect with buyers.'}
             </p>
           </div>
         </div>
@@ -117,7 +121,7 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
           className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer transition-transform active:scale-95"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>{isHi ? '+ अपनी उपज जोड़ें' : '+ Add Produce'}</span>
+          <span>{isHi ? '+ अपनी उपज जोड़ें' : 'Add My Produce'}</span>
         </button>
       </div>
 
@@ -153,7 +157,7 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
                   वर्तमान एकत्र: <strong>{currentQuintals} क्विंटल</strong> ({members.length} किसान)
                 </span>
                 <span>
-                  थोक लक्ष्य: <strong>{targetQuintals} क्विंटल</strong>
+                  लक्ष्य: <strong>{targetQuintals} क्विंटल</strong> (शेष: <strong>{remainingQuintals} क्विंटल</strong>)
                 </span>
               </div>
             </div>
@@ -170,43 +174,47 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
                   </h4>
                   <p className="text-xs text-emerald-100 mt-0.5">
                     {isHi
-                      ? 'सामूहिक सौदे से सभी 15 किसानों को कुल ₹12,000 का अतिरिक्त लाभ प्राप्त होगा।'
-                      : 'Collective bargaining unlocks ₹120/q premium over local mandi intermediary.'}
+                      ? 'सामूहिक सौदे से सभी किसानों को ₹120/क्विंटल का अतिरिक्त प्रीमियम लाभ मिलेगा।'
+                      : 'Collective bargaining unlocks ₹120/q premium over local intermediary.'}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Aggregation Financial Benefit Comparison */}
+            {/* Aggregation Financial Benefit Comparison & Formula */}
             <div className="p-3.5 bg-stone-50 rounded-xl border border-stone-200 text-xs mb-3">
-              <span className="font-bold text-stone-800 block mb-2">
-                {isHi ? 'सामूहिक एकत्रीकरण से अनुमानित वित्तीय लाभ:' : 'Estimated Collective Gain:'}
+              <span className="font-bold text-stone-800 block mb-1">
+                {isHi ? 'मध्यस्थ लागत बचत तुलना सूत्र (Intermediary Cost Comparison):' : 'Intermediary Savings Formula:'}
               </span>
+              <div className="p-2 bg-white rounded border border-stone-200 font-mono text-[11px] text-stone-700 mb-2">
+                बचत = एकत्र मात्रा ({currentQuintals} q) × (थोक खरीदार भाव ₹{bulkBuyerDirectRate} − स्थानीय बिचौलिया दर ₹{baselineIntermediaryRate})
+              </div>
+
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-white p-2 rounded-lg border border-stone-200">
-                  <span className="block text-[10px] text-stone-400">{isHi ? 'स्थानीय मंडी भाव' : 'Local Mandi Rate'}</span>
-                  <span className="font-bold text-stone-800">₹ {baselineRate}</span>
+                  <span className="block text-[10px] text-stone-400">{isHi ? 'स्थानीय बिचौलिया दर' : 'Intermediary Rate'}</span>
+                  <span className="font-bold text-stone-800">₹ {baselineIntermediaryRate}</span>
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-emerald-300">
-                  <span className="block text-[10px] text-emerald-700 font-bold">{isHi ? 'FPO थोक भाव' : 'FPO Bulk Rate'}</span>
-                  <span className="font-bold text-emerald-800">₹ {bulkBuyerRate}</span>
+                  <span className="block text-[10px] text-emerald-700 font-bold">{isHi ? 'सीधा FPO थोक भाव' : 'Bulk Buyer Rate'}</span>
+                  <span className="font-bold text-emerald-800">₹ {bulkBuyerDirectRate}</span>
                 </div>
                 <div className="bg-emerald-100/70 p-2 rounded-lg border border-emerald-300">
-                  <span className="block text-[10px] text-emerald-900 font-bold">{isHi ? 'कुल सामूहिक लाभ' : 'Collective Gain'}</span>
+                  <span className="block text-[10px] text-emerald-900 font-bold">{isHi ? 'कुल सामूहिक बचत' : 'Collective Gain'}</span>
                   <span className="font-extrabold text-emerald-900">+₹ {collectiveBonus.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>
 
             <div className="text-[10px] text-stone-400">
-              *अनुमानित तुलना। परिवहन, छंटाई व नमी कटौती के बाद वास्तविक शुद्ध आय भिन्न हो सकती है।
+              *प्रारंभिक डेमो स्थिति: 14 किसान, 85 क्विंटल। 15 क्विंटल जोड़ने पर 100 क्विंटल लक्ष्य पूर्ण होता है।
             </div>
           </div>
 
-          {/* Members mini-list */}
+          {/* Members list */}
           <div className="mt-4 pt-3 border-t border-stone-100">
             <span className="text-xs font-bold text-stone-700 block mb-2">
-              {isHi ? `हाल ही में जुड़े किसान (${members.length}):` : `Participating Farmers (${members.length}):`}
+              {isHi ? `पूल में शामिल किसान (${members.length}):` : `Participating Farmers (${members.length}):`}
             </span>
             <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
               {members.slice(0, 5).map((m) => (
@@ -231,10 +239,10 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Building className="w-3.5 h-3.5 text-emerald-700" />
-                {isHi ? 'सत्यापित खरीदार बोलियां (Buyer Enquiries):' : 'Verified Buyer Enquiries:'}
+                {isHi ? 'संभावित FPO व खरीदार संपर्क (Demonstration Buyers):' : 'Potential FPO & Buyer Connections:'}
               </span>
               <span className="text-[10px] text-stone-400">
-                {isHi ? 'प्रोटोटाइप सैंपल खरीदार' : 'Sample Verified Buyers'}
+                Sample Profiles
               </span>
             </div>
 
@@ -277,7 +285,7 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
                       भुगतान: <strong>{buyer.paymentTerms}</strong>
                     </span>
                     <button
-                      onClick={() => alert(`खरीदार पूछताछ फॉर्म: ${buyer.buyerName} को 100 क्विंटल का लॉट भेजा गया।`)}
+                      onClick={() => alert(`पूछताछ दर्ज: ${buyer.buyerName} को 100 क्विंटल का FPO लॉट भेजा गया।`)}
                       className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[10px] cursor-pointer"
                     >
                       {isHi ? 'रुचि दर्ज करें' : 'Express Interest'}
@@ -289,7 +297,7 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
           </div>
 
           <div className="mt-4 p-2.5 bg-stone-100 rounded-lg text-[10px] text-stone-500">
-            *अस्वीकरण: हैकाथॉन प्रोटोटाइप में खरीदार प्रविष्टियां काल्पनिक हैं और वास्तविक खरीद दायित्व का प्रतिनिधित्व नहीं करती हैं।
+            *अस्वीकरण: हैकाथॉन प्रोटोटाइप में प्रदर्शित खरीदार प्रविष्टियां केवल प्रदर्शन परिदृश्य हैं और वास्तविक खरीद अनुबंध नहीं हैं।
           </div>
         </div>
       </div>
@@ -300,7 +308,7 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
           <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-stone-200 animate-scaleIn">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <h3 className="font-black text-stone-900 text-base">
-                {isHi ? 'किसान समूह में अपनी फसल जोड़ें' : 'Add Your Produce to Pool'}
+                {isHi ? 'किसान समूह में अपनी उपज जोड़ें' : 'Add My Produce to Pool'}
               </h3>
               <button
                 onClick={() => setShowJoinModal(false)}
@@ -324,20 +332,22 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
                 />
               </div>
 
-              <div>
-                <label className="font-semibold text-stone-700 block mb-1">
-                  {isHi ? 'गाँव / क्षेत्र (Village / Tehsil):' : 'Village / Tehsil:'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={villageName}
-                  onChange={(e) => setVillageName(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-stone-700 block mb-1">
+                    {isHi ? 'फसल:' : 'Crop:'}
+                  </label>
+                  <select
+                    value={selectedCropId}
+                    onChange={(e) => setSelectedCropId(e.target.value as CropId)}
+                    className="w-full p-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    <option value="wheat">गेहूं (Wheat)</option>
+                    <option value="rice">धान (Paddy)</option>
+                    <option value="tomato">टमाटर (Tomato)</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="font-semibold text-stone-700 block mb-1">
                     {isHi ? 'मात्रा (क्विंटल):' : 'Quantity (Quintals):'}
@@ -355,19 +365,40 @@ export const KisaanPool: React.FC<KisaanPoolProps> = ({ crop, language }) => {
                     (15 जोड़ने पर 100 क्विंटल का लक्ष्य पूर्ण होगा)
                   </span>
                 </div>
+              </div>
 
-                <div>
-                  <label className="font-semibold text-stone-700 block mb-1">
-                    {isHi ? 'गुणवत्ता ग्रेड:' : 'Quality Grade:'}
-                  </label>
-                  <select
-                    value={qualityGrade}
-                    onChange={(e) => setQualityGrade(e.target.value as 'A' | 'B')}
-                    className="w-full p-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                  >
-                    <option value="A">Grade A (साफ व सूखा)</option>
-                    <option value="B">Grade B (मानक)</option>
-                  </select>
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">
+                  {isHi ? 'गाँव / संग्रहण केंद्र (Village / Collection Hub):' : 'Village / Collection Location:'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={villageName}
+                  onChange={(e) => setVillageName(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">
+                  {isHi ? 'संपर्क प्राथमिकता (Contact Preference):' : 'Contact Preference:'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['SMS', 'WhatsApp', 'Call'] as const).map((pref) => (
+                    <button
+                      key={pref}
+                      type="button"
+                      onClick={() => setContactPreference(pref)}
+                      className={`p-2 rounded-lg border text-xs font-bold cursor-pointer transition-colors ${
+                        contactPreference === pref
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-400'
+                          : 'bg-stone-50 text-stone-600 border-stone-200'
+                      }`}
+                    >
+                      {pref}
+                    </button>
+                  ))}
                 </div>
               </div>
 

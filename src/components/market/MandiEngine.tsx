@@ -9,6 +9,9 @@ import {
   ArrowRight,
   ShieldAlert,
   Coins,
+  Clock,
+  HelpCircle as QuestionIcon,
+  Info,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -35,6 +38,7 @@ interface MandiEngineProps {
   weather: CurrentWeather;
   simulation: SimulationState;
   mandiDecision: MandiDecision;
+  lowBandwidthMode: boolean;
 }
 
 export const MandiEngine: React.FC<MandiEngineProps> = ({
@@ -44,6 +48,7 @@ export const MandiEngine: React.FC<MandiEngineProps> = ({
   weather,
   simulation,
   mandiDecision,
+  lowBandwidthMode,
 }) => {
   const isHi = language === 'hi';
 
@@ -71,20 +76,50 @@ export const MandiEngine: React.FC<MandiEngineProps> = ({
           <div>
             <h2 className="font-bold text-base sm:text-lg text-stone-900">
               {isHi
-                ? 'मंडी निर्णय इंजन — "अभी बेचूं या रुकूं?"'
-                : 'Mandi Decision Engine — "Sell Now or Hold?"'}
+                ? 'मंडी भाव और बिक्री सलाह (Mandi Bhav aur Bikri Salah)'
+                : 'Mandi Bhav aur Bikri Salah — Market & Weather Decision Engine'}
             </h2>
             <p className="text-xs text-stone-500">
               {isHi
-                ? 'एगमार्कनेट सरकारी भाव, मौसम जोखिम और मूल्य प्रवृत्तियों का संयुक्त विश्लेषण'
-                : 'Agmarknet wholesale mandi prices coupled with rainfall exposure risk'}
+                ? 'बाजार के अवसरों और आगामी मौसम जोखिम की तुलना करें (Compare market opportunities with weather risk).'
+                : 'Compare market opportunities with upcoming weather risk.'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-            {isHi ? 'एगमार्कनेट सत्यापित भाव' : 'Agmarknet Validated'}
+            Agmarknet DMI Verified
+          </span>
+          <span className="text-[10px] text-stone-400">
+            {mandiData.lastUpdated || '17 Oct 2026, 09:30 AM'}
+          </span>
+        </div>
+      </div>
+
+      {/* Prominent Question Headline Card */}
+      <div className="bg-gradient-to-r from-emerald-800 via-green-800 to-teal-800 text-white p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl sm:text-2xl">⚖️</span>
+          <div>
+            <span className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider block">
+              मुख्य कृषि-आर्थिक प्रश्न (Core Decision Question)
+            </span>
+            <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
+              “Abhi Bechein ya 5 Din Rukein?” (अभी बेचें या 5 दिन रुकें?)
+            </h3>
+          </div>
+        </div>
+
+        <div className="shrink-0">
+          <span className={`px-3 py-1.5 rounded-xl text-xs font-black tracking-wide border shadow-sm ${
+            mandiDecision.recommendation === 'PRIORITIZE_STORAGE_SAFETY'
+              ? 'bg-red-500 text-white border-red-300 animate-pulse'
+              : mandiDecision.recommendation === 'CONSIDER_WAITING_MONITOR'
+              ? 'bg-amber-400 text-stone-900 border-amber-200'
+              : 'bg-emerald-400 text-stone-950 border-emerald-300'
+          }`}>
+            {mandiDecision.recommendationHi}
           </span>
         </div>
       </div>
@@ -99,9 +134,9 @@ export const MandiEngine: React.FC<MandiEngineProps> = ({
                 <span className="text-xs font-bold text-stone-500 block uppercase">
                   {mandiData.mandiName}
                 </span>
-                <h3 className="font-black text-stone-900 text-base sm:text-lg">
+                <h4 className="font-black text-stone-900 text-base sm:text-lg">
                   {isHi ? mandiData.commodityHi : mandiData.commodity}
-                </h3>
+                </h4>
               </div>
               <span className="text-xs text-stone-400">
                 {mandiData.arrivalDate}
@@ -133,91 +168,97 @@ export const MandiEngine: React.FC<MandiEngineProps> = ({
               </div>
             </div>
 
-            {/* Recharts Price Trend (7 Days) */}
-            <div className="p-3 bg-stone-50/50 rounded-xl border border-stone-200/70 mb-2">
-              <div className="flex items-center justify-between text-xs font-bold text-stone-800 mb-1">
-                <span>{isHi ? '7-दिवसीय मंडी भाव प्रवृत्ति' : '7-Day Price Trend'}</span>
-                <span className={`text-[11px] font-extrabold ${mandiData.priceChangePctWeek >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                  {mandiData.priceChangePctWeek >= 0 ? `+${mandiData.priceChangePctWeek}%` : `${mandiData.priceChangePctWeek}%`} (साप्ताहिक)
+            {/* Price Trend: Chart or Low-Bandwidth Table */}
+            {lowBandwidthMode ? (
+              <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs mb-3">
+                <span className="font-bold text-stone-800 block mb-1">
+                  7-दिवसीय भाव तालिका (Low-Bandwidth Mode):
                 </span>
+                <div className="grid grid-cols-4 gap-1 text-[11px] text-stone-600">
+                  {mandiData.priceTrend.slice(-4).map((pt, i) => (
+                    <div key={i} className="p-1.5 bg-white rounded border border-stone-200 text-center">
+                      <div className="text-[10px] text-stone-400">{pt.date}</div>
+                      <div className="font-bold text-stone-900">₹{pt.price}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
+            ) : (
+              <div className="p-3 bg-stone-50/50 rounded-xl border border-stone-200/70 mb-2">
+                <div className="flex items-center justify-between text-xs font-bold text-stone-800 mb-1">
+                  <span>{isHi ? '7-दिवसीय मंडी भाव प्रवृत्ति' : '7-Day Price Trend'}</span>
+                  <span className={`text-[11px] font-extrabold ${mandiData.priceChangePctWeek >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {mandiData.priceChangePctWeek >= 0 ? `+${mandiData.priceChangePctWeek}%` : `${mandiData.priceChangePctWeek}%`} (साप्ताहिक)
+                  </span>
+                </div>
 
-              <div className="h-40 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mandiData.priceTrend} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#166534" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#166534" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '11px',
-                      }}
-                      formatter={(val: any) => [`₹ ${Number(val || 0).toLocaleString('en-IN')} / क्विंटल`, 'मॉडल भाव']}
-                    />
-                    <Area type="monotone" dataKey="price" stroke="#166534" strokeWidth={2.5} fillOpacity={1} fill="url(#priceGrad)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="h-40 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={mandiData.priceTrend} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#166534" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#166534" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#ffffff',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '11px',
+                        }}
+                        formatter={(val: any) => [`₹ ${Number(val || 0).toLocaleString('en-IN')} / क्विंटल`, 'मॉडल भाव']}
+                      />
+                      <Area type="monotone" dataKey="price" stroke="#166534" strokeWidth={2.5} fillOpacity={1} fill="url(#priceGrad)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="text-[10px] text-stone-400">
-            *डेटा स्रोत: Agmarknet API / राष्ट्रीय कृषि बाजार (e-NAM)। भाव केवल संदर्भ हेतु हैं।
+          <div className="text-[10px] text-stone-400 mt-2">
+            *डेटा स्रोत: {mandiData.source || 'Agmarknet / DMI Government of India'} • अंतिम अद्यतन: {mandiData.lastUpdated || 'आज 09:30 AM'}
           </div>
         </div>
 
-        {/* Right Column: Explainable Decision & Net Proceeds Calculator (6 cols) */}
+        {/* Right Column: Explainable Decision Details & Net Proceeds Calculator (6 cols) */}
         <div className="lg:col-span-6 flex flex-col justify-between">
-          {/* Decision Verdict Banner */}
+          {/* Decision Verdict Detailed Box */}
           <div className={`p-4 rounded-xl border transition-all ${
-            simulation.isActive || mandiDecision.recommendation === 'SELL_NOW'
-              ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
-              : mandiDecision.recommendation === 'WAIT_AND_MONITOR'
+            mandiDecision.recommendation === 'PRIORITIZE_STORAGE_SAFETY'
+              ? 'bg-gradient-to-br from-red-50 to-amber-50 border-red-300'
+              : mandiDecision.recommendation === 'CONSIDER_WAITING_MONITOR'
               ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-300'
               : 'bg-stone-50 border-stone-200'
           }`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                {isHi ? 'कृषि अर्थशास्त्र परामर्श' : 'Agronomic Decision Engine'}
-              </span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-black tracking-wide border ${
-                simulation.isActive || mandiDecision.recommendation === 'SELL_NOW'
-                  ? 'bg-amber-100 text-amber-900 border-amber-400'
-                  : 'bg-emerald-100 text-emerald-900 border-emerald-400'
-              }`}>
-                {mandiDecision.recommendationHi}
-              </span>
-            </div>
-
-            <p className="text-xs sm:text-sm font-bold text-stone-900 leading-snug mb-2">
+            <p className="text-xs sm:text-sm font-bold text-stone-900 leading-snug mb-2.5">
               {mandiDecision.summaryHi}
             </p>
 
-            {/* Decision Key Drivers */}
-            <div className="space-y-1 mb-2">
-              <span className="text-[10px] font-bold text-stone-500 uppercase block">
-                {isHi ? 'निर्णय के मुख्य आधार (Key Drivers):' : 'Key Drivers:'}
-              </span>
-              {mandiDecision.keyDriversHi.map((driver, i) => (
-                <div key={i} className="text-[11px] text-stone-700 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 shrink-0" />
-                  <span>{driver}</span>
-                </div>
-              ))}
-            </div>
+            {/* Structured Transparency Fields */}
+            <div className="space-y-2 text-xs">
+              <div className="bg-white/80 p-2.5 rounded-lg border border-stone-200">
+                <span className="font-bold text-stone-800 block text-[11px] mb-0.5">
+                  ❓ यह सिफारिश क्यों? (Why this recommendation?):
+                </span>
+                <p className="text-stone-600 text-[11px]">{mandiDecision.whyThisRecommendation}</p>
+              </div>
 
-            <div className="text-[11px] text-stone-600 bg-white/70 p-2 rounded-lg border border-stone-200">
-              <strong>{isHi ? 'मौसम जोखिम प्रभाव: ' : 'Weather Risk: '}</strong>
-              {mandiDecision.weatherRiskImpact}
+              <div className="bg-white/80 p-2.5 rounded-lg border border-stone-200">
+                <span className="font-bold text-stone-800 block text-[11px] mb-0.5">
+                  🔄 यह निर्णय कब बदल सकता है? (What could change this decision?):
+                </span>
+                <p className="text-stone-600 text-[11px]">{mandiDecision.whatCouldChangeDecision}</p>
+              </div>
+
+              <div className="bg-white/80 p-2.5 rounded-lg border border-stone-200 flex items-center justify-between text-[11px] text-stone-500">
+                <span>उपयोग किया गया डेटा: <strong>{mandiDecision.dataUsed}</strong></span>
+              </div>
             </div>
           </div>
 
@@ -226,7 +267,10 @@ export const MandiEngine: React.FC<MandiEngineProps> = ({
             <div className="flex items-center justify-between text-xs font-bold text-stone-800 mb-2">
               <span className="flex items-center gap-1.5">
                 <Coins className="w-4 h-4 text-emerald-700" />
-                {isHi ? 'शुद्ध आय तुलना सिम्युलेटर (Net Proceeds Calculator)' : 'Net Proceeds Simulator'}
+                {isHi ? 'शुद्ध आय तुलना संगणक (Net Proceeds Calculator)' : 'Net Proceeds Simulator'}
+              </span>
+              <span className="text-[10px] text-stone-400">
+                भंडारण खर्च: ₹10/क्विंटल
               </span>
             </div>
 
@@ -244,12 +288,12 @@ export const MandiEngine: React.FC<MandiEngineProps> = ({
                   onChange={(e) => setQuantityQuintals(Number(e.target.value))}
                   className="w-full accent-emerald-600 cursor-pointer"
                 />
-                <span className="font-extrabold text-stone-800">{quantityQuintals} क्विंटल (Quintals)</span>
+                <span className="font-extrabold text-stone-800">{quantityQuintals} क्विंटल</span>
               </div>
 
               <div>
                 <label className="text-[11px] text-stone-500 block mb-1">
-                  {isHi ? 'रुकने पर काल्पनिक भाव बदलाव:' : 'Hypothetical Price Shift:'}
+                  {isHi ? '5 दिन रुकने पर संभावित भाव बदलाव:' : 'Hypothetical Price Shift:'}
                 </label>
                 <input
                   type="range"
@@ -279,7 +323,7 @@ export const MandiEngine: React.FC<MandiEngineProps> = ({
 
               <div className="p-2.5 bg-white rounded-lg border border-stone-200">
                 <span className="text-[10px] text-stone-500 block font-medium">
-                  {isHi ? 'रुकने पर अनुमानित शुद्ध आय (भंडारण काटकर):' : 'Holding (Net of Storage):'}
+                  {isHi ? '5 दिन रुकने पर शुद्ध आय (भंडारण काटकर):' : 'Holding (Net of Storage):'}
                 </span>
                 <div className="flex items-baseline gap-1">
                   <span className="text-base font-black text-stone-900">

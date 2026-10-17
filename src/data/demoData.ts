@@ -51,6 +51,8 @@ export const DEMO_MANDI_DATA: Record<string, Record<CropId, MandiRecord>> = {
       modalPriceInr: 2420,
       unit: '₹ / क्विंटल (Quintal)',
       priceChangePctWeek: 3.4,
+      source: 'Agmarknet / e-NAM',
+      lastUpdated: '17 Oct 2026, 06:00 AM',
       priceTrend: [
         { date: '11 Oct', price: 2340 },
         { date: '12 Oct', price: 2355 },
@@ -72,6 +74,8 @@ export const DEMO_MANDI_DATA: Record<string, Record<CropId, MandiRecord>> = {
       modalPriceInr: 3780,
       unit: '₹ / क्विंटल (Quintal)',
       priceChangePctWeek: -1.8,
+      source: 'Agmarknet / e-NAM',
+      lastUpdated: '17 Oct 2026, 06:00 AM',
       priceTrend: [
         { date: '11 Oct', price: 3850 },
         { date: '12 Oct', price: 3840 },
@@ -93,6 +97,8 @@ export const DEMO_MANDI_DATA: Record<string, Record<CropId, MandiRecord>> = {
       modalPriceInr: 2100,
       unit: '₹ / क्विंटल (Quintal)',
       priceChangePctWeek: 8.5,
+      source: 'Agmarknet / e-NAM',
+      lastUpdated: '17 Oct 2026, 06:00 AM',
       priceTrend: [
         { date: '11 Oct', price: 1920 },
         { date: '12 Oct', price: 1950 },
@@ -116,6 +122,8 @@ export const DEMO_MANDI_DATA: Record<string, Record<CropId, MandiRecord>> = {
       modalPriceInr: 2465,
       unit: '₹ / क्विंटल',
       priceChangePctWeek: 2.1,
+      source: 'Agmarknet / e-NAM',
+      lastUpdated: '17 Oct 2026, 06:00 AM',
       priceTrend: [
         { date: '11 Oct', price: 2410 },
         { date: '12 Oct', price: 2420 },
@@ -137,6 +145,8 @@ export const DEMO_MANDI_DATA: Record<string, Record<CropId, MandiRecord>> = {
       modalPriceInr: 3820,
       unit: '₹ / क्विंटल',
       priceChangePctWeek: 1.2,
+      source: 'Agmarknet / e-NAM',
+      lastUpdated: '17 Oct 2026, 06:00 AM',
       priceTrend: [
         { date: '11 Oct', price: 3770 },
         { date: '12 Oct', price: 3780 },
@@ -158,6 +168,8 @@ export const DEMO_MANDI_DATA: Record<string, Record<CropId, MandiRecord>> = {
       modalPriceInr: 2280,
       unit: '₹ / क्विंटल',
       priceChangePctWeek: 12.0,
+      source: 'Agmarknet / e-NAM',
+      lastUpdated: '17 Oct 2026, 06:00 AM',
       priceTrend: [
         { date: '11 Oct', price: 2000 },
         { date: '12 Oct', price: 2050 },

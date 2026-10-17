@@ -2,6 +2,16 @@ export type Language = 'hi' | 'en';
 
 export type CropId = 'wheat' | 'rice' | 'tomato';
 
+export type DemoScenario = 'normal' | 'extreme_rain' | 'collective_selling';
+
+export interface FarmProfile {
+  area: number;
+  areaUnit: 'acres' | 'hectares';
+  sowingDate: string;
+  soilType: string;
+  irrigationMethod: string;
+}
+
 export interface LocationConfig {
   id: string;
   nameEn: string;
@@ -53,6 +63,8 @@ export interface CropConfig {
 export interface CurrentWeather {
   temperatureC: number;
   apparentTempC: number;
+  tempMinC?: number;
+  tempMaxC?: number;
   relativeHumidity: number;
   windSpeedKmh: number;
   windDirectionDeg: number;
@@ -81,7 +93,7 @@ export interface CalendarDayAdvisory {
 }
 
 export interface SoilTwinState {
-  shallowMoisturePct: number; // 0-7 cm
+  shallowMoisturePct: number; // 0-6 cm
   rootZoneMoisturePct: number; // 7-28 cm
   shallowTempC: number;
   rootZoneTempC: number;
@@ -89,6 +101,7 @@ export interface SoilTwinState {
   statusTextHi: string;
   irrigationRecommendation: 'stop' | 'delay' | 'irrigate_light' | 'irrigate_normal';
   irrigationReasonHi: string;
+  motorMode: 'simulated' | 'connected_hardware';
   motorState: 'SIMULATED_ON' | 'SIMULATED_OFF' | 'AUTO_OFF_RECOMMENDED' | 'MANUAL_OVERRIDE';
   motorAutoTriggered: boolean;
   pumpFlowRateLph: number;
@@ -152,11 +165,21 @@ export interface MandiRecord {
   unit: string; // e.g. "₹ / Quintal"
   priceTrend: { date: string; price: number }[];
   priceChangePctWeek: number;
+  source: string;
+  lastUpdated: string;
 }
 
+export type MandiRecommendationType =
+  | 'CONSIDER_SELLING_NOW'
+  | 'CONSIDER_WAITING_MONITOR'
+  | 'PRIORITIZE_STORAGE_SAFETY'
+  | 'PARTIAL_SALE'
+  | 'INSUFFICIENT_DATA';
+
 export interface MandiDecision {
-  recommendation: 'SELL_NOW' | 'WAIT_AND_MONITOR' | 'PARTIAL_SALE' | 'INSUFFICIENT_DATA';
+  recommendation: MandiRecommendationType;
   recommendationHi: string;
+  recommendationEn: string;
   summaryHi: string;
   summaryEn: string;
   keyDriversHi: string[];
@@ -167,6 +190,10 @@ export interface MandiDecision {
     storageCostEst: number;
     netDifference: number;
   };
+  whyThisRecommendation: string;
+  whatCouldChangeDecision: string;
+  dataUsed: string;
+  lastUpdated: string;
 }
 
 export interface FarmerPoolMember {
@@ -214,6 +241,7 @@ export interface AlertNotification {
   messageEn: string;
   sourceModule: 'climate' | 'soil' | 'doctor' | 'mandi' | 'pool' | 'simulator';
   smsContentHi: string;
+  status?: 'Preview' | 'Queued' | 'Sent' | 'Failed';
 }
 
 export interface SimulationState {

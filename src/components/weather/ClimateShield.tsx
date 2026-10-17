@@ -13,6 +13,8 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  CalendarDays,
+  Sparkles,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -30,6 +32,7 @@ import {
   ClimateComparisonData,
   CropConfig,
   CurrentWeather,
+  FarmProfile,
   Language,
   LocationConfig,
   SimulationState,
@@ -38,6 +41,7 @@ import {
 interface ClimateShieldProps {
   location: LocationConfig;
   crop: CropConfig;
+  farmProfile: FarmProfile;
   language: Language;
   currentWeather: CurrentWeather;
   calendarDays: CalendarDayAdvisory[];
@@ -53,12 +57,14 @@ interface ClimateShieldProps {
   };
   accumulatedGdd: number;
   simulation: SimulationState;
+  lowBandwidthMode: boolean;
   onOpenExplainableModal: () => void;
 }
 
 export const ClimateShield: React.FC<ClimateShieldProps> = ({
   location,
   crop,
+  farmProfile,
   language,
   currentWeather,
   calendarDays,
@@ -66,25 +72,41 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
   sowingScore,
   accumulatedGdd,
   simulation,
+  lowBandwidthMode,
   onOpenExplainableModal,
 }) => {
   const isHi = language === 'hi';
   const [showMethodology, setShowMethodology] = useState(false);
+  const [viewDaysCount, setViewDaysCount] = useState<7 | 14>(14);
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<CalendarDayAdvisory | null>(
     calendarDays[0] || null
   );
 
-  // Cosine weather similarity metric
-  const similarityPct = simulation.isActive ? 94 : 88;
-  const comparisonYear = simulation.isActive ? '2019 (अनपेक्षित चक्रवाती वर्षा)' : '2021 (सामान्य रबी सत्र)';
+  const displayedDays = calendarDays.slice(0, viewDaysCount);
 
-  // Calculate anomaly: e.g. Oct historical rain vs current forecast
+  // Anomaly calculation
   const currentMonthData = climateComparison.find((c) => c.monthOrDay.includes('Oct')) || climateComparison[9];
   const rainDiffPct = currentMonthData
     ? simulation.isActive
       ? '+510%'
       : `${Math.round(((currentMonthData.currentOrForecastRainMm - currentMonthData.historicalRainMm) / (currentMonthData.historicalRainMm || 1)) * 100)}%`
     : '0%';
+
+  // Dynamic Sowing Window recommendations
+  const sowingWindow =
+    crop.id === 'wheat'
+      ? { window: '20 Oct – 15 Nov', note: 'इष्टतम अवधि (Optimal Rabi Window)' }
+      : crop.id === 'rice'
+      ? { window: '15 Jun – 10 Jul', note: 'मानसून रोपाई (Kharif Monsoon Window)' }
+      : { window: '15 Sep – 30 Oct', note: 'शरदकालीन टमाटर (Autumn Crop Window)' };
+
+  // Estimated harvest window based on sowing date and GDD
+  const estimatedHarvestWindow =
+    crop.id === 'wheat'
+      ? '10 Mar – 25 Mar 2027 (दाना भराव व पकना)'
+      : crop.id === 'rice'
+      ? '15 Oct – 05 Nov 2026 (बाली पकना)'
+      : '15 Dec 2026 – 20 Jan 2027 (तुड़ाई चरण)';
 
   return (
     <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden flex flex-col">
@@ -97,22 +119,38 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
             </span>
             <h2 className="font-bold text-base sm:text-lg text-stone-900">
               {isHi
-                ? '10-वर्षीय जलवायु विश्लेषण व 14-दिवसीय बुवाई कैलेंडर'
-                : '10-Year Climate Intelligence & 14-Day Sowing Calendar'}
+                ? 'फसल बुवाई सुरक्षा (Fasal Buvai Suraksha)'
+                : 'Fasal Buvai Suraksha — Sowing & Weather Intelligence'}
             </h2>
           </div>
           <p className="text-xs text-stone-500 mt-0.5">
             {isHi
-              ? 'ऐतिहासिक जलवायु पैटर्न (2016-2025) और आगामी मौसम की बहु-स्तरीय सलाह'
-              : 'Decadal climate baselines vs current ECMWF/GFS forecasts'}
+              ? 'बुवाई का सही समय जानें और बदलते मौसम के लिए तैयार रहें (Know the right time to sow and prepare).'
+              : 'Know the right time to sow and prepare for changing weather.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-stone-400 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {isHi ? 'अद्यतन: 10 मिनट पहले' : 'Updated: 10m ago'}
-          </span>
+          {/* 7-day vs 14-day View Switcher */}
+          <div className="bg-stone-200/80 p-0.5 rounded-lg flex items-center font-bold text-[11px]">
+            <button
+              onClick={() => setViewDaysCount(7)}
+              className={`px-2 py-1 rounded-md cursor-pointer transition-colors ${
+                viewDaysCount === 7 ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              7-Day
+            </button>
+            <button
+              onClick={() => setViewDaysCount(14)}
+              className={`px-2 py-1 rounded-md cursor-pointer transition-colors ${
+                viewDaysCount === 14 ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              14-Day
+            </button>
+          </div>
+
           <button
             onClick={() => setShowMethodology(!showMethodology)}
             className="text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
@@ -131,23 +169,23 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
             {isHi ? 'पारदर्शी डेटा स्रोत व स्कोर गणना पद्धति:' : 'Transparent Data Provenance & Methodology:'}
           </div>
           <p>
-            • <strong>डेटा स्रोत:</strong> Open-Meteo Weather Forecast (ECMWF & GFS मॉडल) और ERA5-Land 10-वर्षीय ऐतिहासिक जलवायु रिकॉर्ड (2016–2025)। 2026 के आंकड़े वर्तमान प्रेक्षणों पर आधारित हैं।
+            • <strong>डेटा स्रोत:</strong> Open-Meteo Weather Forecast (ECMWF & GFS) और ERA5-Land 10-वर्षीय ऐतिहासिक जलवायु रिकॉर्ड (2016–2025)। 2026 के आंकड़े वर्तमान प्रेक्षणों पर आधारित हैं।
           </p>
           <p>
             • <strong>बुवाई सुरक्षा स्कोर सूत्र:</strong>{' '}
             <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-mono text-[11px]">
-              स्कोर = 0.35 × मृदा तापमान उपयुक्तता + 0.40 × वर्षा जोखिम उपयुक्तता + 0.25 × जड़ नमी उपयुक्तता
+              Score = 0.35 × Soil Temperature Score + 0.40 × Historical Rainfall Risk Score + 0.25 × Root-Zone Moisture Score
             </code>
           </p>
           <p>
-            • <strong>पारदर्शिता अस्वीकरण:</strong> यह एक प्रोटोटाइप निर्णय-सहायता स्कोर है, जो वैज्ञानिक रूप से प्रमाणित फसल पैदावार भविष्यवाणी नहीं है।
+            • <strong>पारदर्शिता अस्वीकरण:</strong> यह एक प्रोटोटाइप निर्णय-सहायता स्कोर है, आधिकारिक सरकारी सलाह नहीं।
           </p>
         </div>
       )}
 
-      {/* Real-time Current Weather Gauges Grid */}
+      {/* Real-time Current Weather & Soil Indicators Grid */}
       <div className="p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 bg-stone-50/30 border-b border-stone-100">
-        {/* Temp */}
+        {/* Temperature (with Min / Max) */}
         <div className="p-3 rounded-xl bg-white border border-stone-200/80 shadow-2xs">
           <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
             <span>{isHi ? 'तापमान' : 'Air Temp'}</span>
@@ -157,21 +195,21 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
             {currentWeather.temperatureC}°C
           </div>
           <div className="text-[10px] text-stone-500 mt-0.5">
-            {isHi ? `महसूस: ${currentWeather.apparentTempC}°C` : `Feels: ${currentWeather.apparentTempC}°C`}
+            न्यून: {currentWeather.tempMinC ?? 18}° | अधि: {currentWeather.tempMaxC ?? 28}°C
           </div>
         </div>
 
-        {/* Soil Temp */}
+        {/* Soil Temperature */}
         <div className="p-3 rounded-xl bg-white border border-stone-200/80 shadow-2xs">
           <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
-            <span>{isHi ? 'मृदा तापमान' : 'Soil Temp (0-7cm)'}</span>
+            <span>{isHi ? 'मृदा तापमान' : 'Soil Temp (0-6cm)'}</span>
             <Layers className="w-3.5 h-3.5 text-orange-600" />
           </div>
           <div className="text-xl font-black text-stone-900">
             22.8°C
           </div>
           <div className="text-[10px] text-emerald-700 font-medium mt-0.5">
-            {isHi ? 'अंकुरण अनुकूल' : 'Optimal germination'}
+            {isHi ? 'अंकुरण हेतु अनुकूल' : 'Optimal germination'}
           </div>
         </div>
 
@@ -213,7 +251,7 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
             {simulation.isActive ? `${simulation.simulatedHumidityPct}%` : `${currentWeather.relativeHumidity}%`}
           </div>
           <div className="text-[10px] text-stone-500 mt-0.5">
-            {simulation.isActive ? 'फंगल रोग अनुकूल' : 'सामान्य'}
+            {simulation.isActive ? 'फंगल रोग जोखिम' : 'सामान्य'}
           </div>
         </div>
 
@@ -253,7 +291,29 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
         </div>
       </div>
 
-      {/* Main Content: Historical Chart + 14-day Calendar */}
+      {/* Sowing Window & Estimated Harvest Window Banner */}
+      <div className="px-4 py-2.5 bg-stone-100/60 border-b border-stone-200/60 flex flex-wrap items-center justify-between text-xs gap-3">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-stone-800">
+            {isHi ? 'अनुशंसित बुवाई अवधि:' : 'Recommended Sowing Window:'}
+          </span>
+          <span className="bg-emerald-100 text-emerald-900 font-extrabold px-2 py-0.5 rounded-md border border-emerald-300">
+            {sowingWindow.window}
+          </span>
+          <span className="text-[11px] text-stone-500 hidden sm:inline">({sowingWindow.note})</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-stone-800">
+            {isHi ? 'अनुमानित कटाई अवधि (GDD आधारित):' : 'Estimated Harvest Window:'}
+          </span>
+          <span className="bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-md border border-amber-300">
+            {estimatedHarvestWindow}
+          </span>
+        </div>
+      </div>
+
+      {/* Main Content: Historical Chart + Sowing Calendar */}
       <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: 10-Year Climate Graph & GDD (7 cols) */}
         <div className="lg:col-span-7 flex flex-col justify-between">
@@ -263,17 +323,16 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
                 <h3 className="font-bold text-stone-900 text-sm sm:text-base flex items-center gap-1.5">
                   <TrendingUp className="w-4 h-4 text-emerald-700" />
                   {isHi
-                    ? '10-वर्षीय जलवायु आधार रेखा (2016–2025) बनाम 2026 पूर्वानुमान'
-                    : '10-Year Climate Baseline (2016–2025) vs 2026 Forecast'}
+                    ? '10-वर्षीय ऐतिहासिक जलवायु तुलना (2016–2025) बनाम 2026'
+                    : '10-Year Historical Climate Baseline (2016–2025) vs 2026'}
                 </h3>
                 <p className="text-xs text-stone-500">
                   {isHi
-                    ? `स्थान: ${location.nameHi} | वर्षा विसंगति (Anomaly): ${rainDiffPct}`
-                    : `Station: ${location.nameEn} | Rain Anomaly: ${rainDiffPct}`}
+                    ? `स्थान: ${location.nameHi} | मासिक वर्षा विसंगति: ${rainDiffPct}`
+                    : `Station: ${location.nameEn} | Monthly Rainfall Anomaly: ${rainDiffPct}`}
                 </p>
               </div>
 
-              {/* Anomaly badge */}
               <div className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${
                 simulation.isActive
                   ? 'bg-red-100 text-red-800 border-red-300'
@@ -283,31 +342,57 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
               </div>
             </div>
 
-            {/* Recharts chart */}
-            <div className="h-64 sm:h-72 w-full mt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={climateComparison} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="monthOrDay" tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis yAxisId="rain" orientation="left" tick={{ fontSize: 11, fill: '#2563eb' }} label={{ value: 'Rain (mm)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#2563eb' }} />
-                  <YAxis yAxisId="temp" orientation="right" tick={{ fontSize: 11, fill: '#dc2626' }} domain={[10, 42]} label={{ value: 'Temp (°C)', angle: 90, position: 'insideRight', fontSize: 10, fill: '#dc2626' }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                      fontSize: '11px',
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                  <Bar yAxisId="rain" dataKey="historicalRainMm" name={isHi ? 'ऐतिहासिक वर्षा (10-वर्ष औसत)' : 'Historical Rain (10y Avg)'} fill="#93c5fd" radius={[4, 4, 0, 0]} />
-                  <Bar yAxisId="rain" dataKey="currentOrForecastRainMm" name={isHi ? '2026 प्रेक्षित/पूर्वानुमान वर्षा' : '2026 Current/Forecast Rain'} fill="#2563eb" radius={[4, 4, 0, 0]} />
-                  <Line yAxisId="temp" type="monotone" dataKey="historicalTempC" name={isHi ? 'ऐतिहासिक औसत तापमान' : 'Historical Avg Temp'} stroke="#f97316" strokeDasharray="4 4" dot={false} strokeWidth={2} />
-                  <Line yAxisId="temp" type="monotone" dataKey="currentOrForecastTempC" name={isHi ? '2026 तापमान' : '2026 Temperature'} stroke="#dc2626" strokeWidth={2.5} dot={{ r: 3 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
+            {/* Recharts chart or Low-Bandwidth Table */}
+            {lowBandwidthMode ? (
+              <div className="border border-stone-200 rounded-xl overflow-x-auto my-3 text-xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-stone-100 text-stone-700 text-[11px]">
+                      <th className="p-2 border-b">Month</th>
+                      <th className="p-2 border-b">Hist Rain</th>
+                      <th className="p-2 border-b">2026 Rain</th>
+                      <th className="p-2 border-b">Hist Temp</th>
+                      <th className="p-2 border-b">2026 Temp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {climateComparison.slice(0, 6).map((c, i) => (
+                      <tr key={i} className="border-b hover:bg-stone-50">
+                        <td className="p-2 font-bold">{c.monthOrDay}</td>
+                        <td className="p-2">{c.historicalRainMm} mm</td>
+                        <td className="p-2 text-blue-700 font-bold">{c.currentOrForecastRainMm} mm</td>
+                        <td className="p-2">{c.historicalTempC}°C</td>
+                        <td className="p-2 text-red-700 font-bold">{c.currentOrForecastTempC}°C</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="h-64 sm:h-72 w-full mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={climateComparison} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="monthOrDay" tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="rain" orientation="left" tick={{ fontSize: 11, fill: '#2563eb' }} label={{ value: 'Rain (mm)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#2563eb' }} />
+                    <YAxis yAxisId="temp" orientation="right" tick={{ fontSize: 11, fill: '#dc2626' }} domain={[10, 42]} label={{ value: 'Temp (°C)', angle: 90, position: 'insideRight', fontSize: 10, fill: '#dc2626' }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '11px',
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                    <Bar yAxisId="rain" dataKey="historicalRainMm" name={isHi ? 'ऐतिहासिक वर्षा (10-वर्ष औसत)' : 'Historical Rain (10y Avg)'} fill="#93c5fd" radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="rain" dataKey="currentOrForecastRainMm" name={isHi ? '2026 प्रेक्षित/पूर्वानुमान वर्षा' : '2026 Forecast Rain'} fill="#2563eb" radius={[4, 4, 0, 0]} />
+                    <Line yAxisId="temp" type="monotone" dataKey="historicalTempC" name={isHi ? 'ऐतिहासिक औसत तापमान' : 'Historical Avg Temp'} stroke="#f97316" strokeDasharray="4 4" dot={false} strokeWidth={2} />
+                    <Line yAxisId="temp" type="monotone" dataKey="currentOrForecastTempC" name={isHi ? '2026 तापमान' : '2026 Temperature'} stroke="#dc2626" strokeWidth={2.5} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
 
           {/* GDD & Cosine Similarity Row */}
@@ -330,8 +415,8 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
               </div>
               <p className="text-[11px] text-stone-600 mt-1">
                 {isHi
-                  ? `अनुमानित परिपक्वता अवधि: 110–125 दिन (${crop.nameHi})`
-                  : `Estimated maturity window: 110–125 days for ${crop.nameEn}`}
+                  ? `खेत क्षेत्रफल: ${farmProfile.area} ${farmProfile.areaUnit === 'acres' ? 'एकड़' : 'हेक्टेयर'} • मिट्टी: ${farmProfile.soilType}`
+                  : `Farm size: ${farmProfile.area} ${farmProfile.areaUnit} • Soil: ${farmProfile.soilType}`}
               </p>
             </div>
 
@@ -340,55 +425,54 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
               <div className="flex items-center justify-between text-stone-500 font-semibold mb-1">
                 <span>{isHi ? 'ऐतिहासिक मौसम समानता' : 'Historical Similarity'}</span>
                 <span className="font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                  {similarityPct}% कोसाइन मिलान
+                  {simulation.isActive ? '94%' : '88%'} कोसाइन मिलान
                 </span>
               </div>
               <p className="text-stone-800 font-bold text-xs mt-1">
-                {comparisonYear}
+                {simulation.isActive ? '2019 (अनपेक्षित चक्रवाती वर्षा)' : '2021 (सामान्य रबी सत्र)'}
               </p>
               <p className="text-[10px] text-stone-500 mt-0.5">
                 {isHi
-                  ? '*यह केवल मौसम सदिशों की गणितीय समानता है, तूफान की प्रत्यक्ष प्रायिकता नहीं।'
+                  ? '*यह मौसम सदिशों का समानता सूचकांक है, भविष्य में तूफान आने की निश्चित प्रायिकता नहीं।'
                   : '*Computed vector similarity indicator, not storm probability.'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Right Column: 14-Day Interactive Sowing Calendar (5 cols) */}
+        {/* Right Column: Sowing Calendar (5 cols) */}
         <div className="lg:col-span-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-stone-900 text-sm sm:text-base">
-                {isHi ? '14-दिवसीय बुवाई व कटाई कैलेंडर' : '14-Day Sowing & Harvest Calendar'}
+                {viewDaysCount}-दिवसीय बुवाई उपयुक्तता कैलेंडर
               </h3>
               <div className="flex items-center gap-2 text-[10px]">
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                  {isHi ? 'अनुकूल' : 'Suitable'}
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  {isHi ? 'अनुकूल' : 'Safe'}
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                  <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
                   {isHi ? 'सतर्क' : 'Caution'}
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
-                  {isHi ? 'जोखिम' : 'Risk'}
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                  {isHi ? 'जोखिम' : 'Unsuitable'}
                 </span>
               </div>
             </div>
 
             <p className="text-xs text-stone-500 mb-3">
               {isHi
-                ? 'दैनिक विवरण और बुवाई उपयुक्तता देखने के लिए किसी भी तिथि पर क्लिक करें:'
-                : 'Click any day to view detailed sowing and field suitability:'}
+                ? 'दैनिक विवरण व उपयुक्तता जांचने के लिए किसी भी तिथि पर क्लिक करें:'
+                : 'Click any date tile to view agronomic recommendations:'}
             </p>
 
             {/* Calendar tiles grid */}
             <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-              {calendarDays.map((day, idx) => {
+              {displayedDays.map((day, idx) => {
                 const isSelected = selectedCalendarDay?.date === day.date;
-                // Under simulation mode, next 3 days are marked critical red
                 const isSimulationDay = simulation.isActive && idx < 3;
                 const effectiveSuitability = isSimulationDay ? 'red' : day.suitability;
 
@@ -475,7 +559,7 @@ export const ClimateShield: React.FC<ClimateShieldProps> = ({
                 <strong>{isHi ? 'कृषि परामर्श: ' : 'Agronomic Advice: '}</strong>
                 {simulation.isActive && selectedCalendarDay.date === calendarDays[0]?.date
                   ? isHi
-                    ? 'अतिवृष्टि के कारण बुवाई स्थगित रखें; जल निकासी के लिए मेड़ व नालियां दुरुस्त करें।'
+                    ? 'अतिवृष्टि के कारण बुवाई स्थगित रखें; खेत से जल निकासी के नालियां दुरुस्त करें।'
                     : 'Heavy deluge forecast. Cease sowing and prepare surface drainage channels.'
                   : isHi
                   ? selectedCalendarDay.reasonHi

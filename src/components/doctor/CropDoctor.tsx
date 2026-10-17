@@ -13,10 +13,12 @@ import {
   ExternalLink,
   ShieldCheck,
   Eye,
+  Trash2,
 } from 'lucide-react';
 import {
   CropConfig,
   CropDiagnosisResult,
+  CropId,
   DiseaseRiskAssessment,
   Language,
   LocationConfig,
@@ -49,7 +51,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
 
   // Photo Diagnosis State
   const [selectedImage, setSelectedImage] = useState<string | null>(SAMPLE_CROP_IMAGES[0].previewUrl);
-  const [customFileBase64, setCustomFileBase64] = useState<string | null>(null);
+  const [activeCropId, setActiveCropId] = useState<CropId>(crop.id);
   const [userSymptoms, setUserSymptoms] = useState<string>('पत्तियों पर पीली धारियां और पाउडर दिख रहा है');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [diagnosisResult, setDiagnosisResult] = useState<CropDiagnosisResult | null>(
@@ -61,7 +63,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
   // Handle sample image click
   const handleSelectSample = (sample: (typeof SAMPLE_CROP_IMAGES)[0]) => {
     setSelectedImage(sample.previewUrl);
-    setCustomFileBase64(null);
+    setActiveCropId(sample.crop);
     setDiagnosisResult(sample.fallbackDiagnosis);
     setUserSymptoms(sample.descriptionHi);
   };
@@ -80,10 +82,16 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
     reader.onload = () => {
       const b64 = reader.result as string;
       setSelectedImage(b64);
-      setCustomFileBase64(b64);
-      setDiagnosisResult(null); // Clear until analyzed
+      setDiagnosisResult(null);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Remove photo
+  const handleRemovePhoto = () => {
+    setSelectedImage(null);
+    setDiagnosisResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Trigger Gemini Vision AI analysis
@@ -101,7 +109,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
       const res = await analyzeCropPhoto(
         selectedImage,
         mime,
-        crop.id,
+        activeCropId,
         userSymptoms,
         location.nameEn
       );
@@ -111,7 +119,6 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
       }
     } catch (err) {
       console.error('Image analysis error:', err);
-      // Fallback to sample 0
       setDiagnosisResult(SAMPLE_CROP_IMAGES[0].fallbackDiagnosis);
     } finally {
       setIsAnalyzing(false);
@@ -122,8 +129,8 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
   const handleSpeakDiagnosis = () => {
     if (!diagnosisResult) return;
     const speech = isHi
-      ? `किसान साथी फसल जांच रिपोर्ट: संभावित समस्या है ${diagnosisResult.possibleIssueHi}। विश्वसनीयता श्रेणी: ${diagnosisResult.confidenceCategory}। संस्तुति: ${diagnosisResult.recommendedNextSteps.slice(0, 2).join('। ')}। विस्तृत सलाह के लिए स्थानीय कृषि विज्ञान केंद्र से संपर्क करें।`
-      : `Crop Diagnosis: Possible issue is ${diagnosisResult.possibleIssue}. Confidence: ${diagnosisResult.confidenceCategory}. Key recommendation: ${diagnosisResult.recommendedNextSteps.slice(0, 2).join('. ')}. Consult KVK before spraying.`;
+      ? `फसल डॉक्टर रिपोर्ट: संभावित रोग है ${diagnosisResult.possibleIssueHi}। मॉडल विश्वसनीयता: ${diagnosisResult.confidenceScorePct} प्रतिशत। संस्तुति: ${diagnosisResult.recommendedNextSteps.slice(0, 2).join('। ')}। रासायनिक छिड़काव से पहले कृषि वैज्ञानिक से पुष्टि करें।`
+      : `Crop Doctor Report: Possible issue is ${diagnosisResult.possibleIssue}. Confidence: ${diagnosisResult.confidenceScorePct} percent. Preliminary AI assessment; expert confirmation recommended.`;
     onSpeakText(speech);
   };
 
@@ -137,18 +144,20 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
           </span>
           <div>
             <h2 className="font-bold text-base sm:text-lg text-stone-900">
-              {isHi ? 'एआई फसल डॉक्टर — पूर्वानुमान व पहचान' : 'AI Crop Doctor — Predict & Detect'}
+              {isHi
+                ? 'फसल डॉक्टर एआई (Fasal Doctor AI)'
+                : 'Fasal Doctor AI — Crop Health & Diagnosis'}
             </h2>
             <p className="text-xs text-stone-500">
               {isHi
-                ? '48-घंटे का रोग जोखिम रडार और जेमिनी मल्टीमॉडल फोटो डायग्नोसिस'
-                : 'Dual-layer disease radar and Gemini multimodal vision diagnosis'}
+                ? 'संभावित फसल समस्याओं की पहचान करें और अगले कदम समझें (Identify problems & next steps).'
+                : 'Identify possible crop problems and understand the next steps.'}
             </p>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center bg-stone-200/70 p-1 rounded-xl text-xs font-bold">
+        <div className="flex items-center bg-stone-200/80 p-0.5 rounded-xl text-xs font-bold">
           <button
             onClick={() => setActiveTab('radar')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
@@ -157,7 +166,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            {isHi ? '48-घंटे रोग रडार' : '48h Disease Radar'}
+            {isHi ? '48-घंटे रोग रडार' : 'Disease Radar'}
           </button>
           <button
             onClick={() => setActiveTab('diagnosis')}
@@ -168,7 +177,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{isHi ? 'एआई फोटो जांच (Gemini)' : 'Photo Diagnosis'}</span>
+            <span>{isHi ? 'एआई फोटो जांच (Gemini)' : 'AI Photo Diagnosis'}</span>
           </button>
         </div>
       </div>
@@ -274,7 +283,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
           <div className="lg:col-span-5 flex flex-col justify-between">
             <div>
               <span className="text-xs font-bold text-stone-700 uppercase tracking-wider block mb-2">
-                {isHi ? 'नमूना फोटो से त्वरित परीक्षण (Instant Demo):' : 'Test With Sample Photos:'}
+                {isHi ? 'त्वरित डेमो नमूना पत्ती चुनें:' : 'Test With Sample Photos:'}
               </span>
 
               {/* Sample Images Thumbnails */}
@@ -310,12 +319,13 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                       alt="Crop specimen"
                       className="w-full h-44 object-cover rounded-lg shadow-2xs"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
                       <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-1.5 bg-white text-stone-900 rounded-lg text-xs font-bold cursor-pointer"
+                        onClick={handleRemovePhoto}
+                        className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer shadow-sm"
+                        title="हटाएं / Remove"
                       >
-                        {isHi ? 'फोटो बदलें' : 'Change Photo'}
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -343,23 +353,40 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                     className="text-xs text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
                     <Upload className="w-3.5 h-3.5 text-stone-500" />
-                    {isHi ? 'गैलरी से चुनें' : 'Upload File'}
+                    {isHi ? 'गैलरी / कैमरा से चुनें' : 'Upload File / Camera'}
                   </button>
                 </div>
               </div>
 
-              {/* Symptoms Input */}
-              <div className="mt-3">
-                <label className="text-[11px] font-semibold text-stone-600 block mb-1">
-                  {isHi ? 'लक्षण विवरण (Farmer Observed Symptoms):' : 'Reported Symptoms:'}
-                </label>
-                <input
-                  type="text"
-                  value={userSymptoms}
-                  onChange={(e) => setUserSymptoms(e.target.value)}
-                  placeholder="उदा. पत्तियों पर पीली धारियां या धब्बे..."
-                  className="w-full text-xs p-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-white"
-                />
+              {/* Crop Selector & Symptoms */}
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <label className="text-[11px] font-semibold text-stone-600 block mb-1">
+                    {isHi ? 'फसल:' : 'Crop:'}
+                  </label>
+                  <select
+                    value={activeCropId}
+                    onChange={(e) => setActiveCropId(e.target.value as CropId)}
+                    className="w-full text-xs p-2 rounded-lg border border-stone-300 bg-white"
+                  >
+                    <option value="wheat">गेहूं (Wheat)</option>
+                    <option value="rice">धान (Paddy)</option>
+                    <option value="tomato">टमाटर (Tomato)</option>
+                  </select>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[11px] font-semibold text-stone-600 block mb-1">
+                    {isHi ? 'लक्षण विवरण (Symptoms):' : 'Observed Symptoms:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={userSymptoms}
+                    onChange={(e) => setUserSymptoms(e.target.value)}
+                    placeholder="पत्तियों पर धब्बे या पीलापन..."
+                    className="w-full text-xs p-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-white"
+                  />
+                </div>
               </div>
             </div>
 
@@ -377,7 +404,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-emerald-200" />
-                  <span>{isHi ? 'एआई फसल डॉक्टर से जांचें (Run AI Doctor)' : 'Run Diagnosis'}</span>
+                  <span>{isHi ? 'फसल डॉक्टर से जांचें (Run Diagnosis)' : 'Run Diagnosis'}</span>
                 </>
               )}
             </button>
@@ -392,19 +419,19 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                        {isHi ? 'पहचाना गया रोग' : 'Detected Issue'}
+                        {isHi ? 'पहचाना गया रोग / विकार' : 'Detected Issue'}
                       </span>
                       <h3 className="text-base sm:text-lg font-black text-stone-900 mt-1">
                         {isHi ? diagnosisResult.possibleIssueHi : diagnosisResult.possibleIssue}
                       </h3>
                       <p className="text-xs text-stone-500 italic">
-                        {diagnosisResult.possibleIssue}
+                        Possible issue: {diagnosisResult.possibleIssue}
                       </p>
                     </div>
 
                     <div className="text-right shrink-0">
                       <span className="px-2.5 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800 border border-blue-200">
-                        {diagnosisResult.confidenceCategory} ({diagnosisResult.confidenceScorePct}%)
+                        Model Confidence: {diagnosisResult.confidenceScorePct}%
                       </span>
                       <span className="block text-[10px] font-bold text-red-600 mt-1">
                         {diagnosisResult.urgency}
@@ -412,22 +439,40 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                     </div>
                   </div>
 
-                  {/* Observed Symptoms */}
-                  <div className="p-3 bg-white rounded-lg border border-stone-200/80 mb-3 text-xs">
-                    <span className="font-bold text-stone-800 block mb-1">
-                      {isHi ? 'प्रत्यक्ष लक्षण (Visible Symptoms):' : 'Visible Symptoms:'}
-                    </span>
-                    <ul className="list-disc list-inside space-y-0.5 text-stone-600 text-[11px]">
-                      {diagnosisResult.visibleSymptoms.map((sym, i) => (
-                        <li key={i}>{sym}</li>
-                      ))}
-                    </ul>
+                  {/* Status Banner */}
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 font-semibold mb-3">
+                    Status: Preliminary AI assessment; expert confirmation recommended before applying any chemical spray.
                   </div>
 
-                  {/* Recommended Next Steps */}
-                  <div className="p-3 bg-white rounded-lg border border-stone-200/80 mb-3 text-xs">
+                  {/* Observed Symptoms & Alternative Explanations */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                    <div className="p-3 bg-white rounded-lg border border-stone-200 text-xs">
+                      <span className="font-bold text-stone-800 block mb-1">
+                        {isHi ? 'प्रत्यक्ष लक्षण (Visible Symptoms):' : 'Visible Symptoms:'}
+                      </span>
+                      <ul className="list-disc list-inside space-y-0.5 text-stone-600 text-[11px]">
+                        {diagnosisResult.visibleSymptoms.map((sym, i) => (
+                          <li key={i}>{sym}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-lg border border-stone-200 text-xs">
+                      <span className="font-bold text-stone-800 block mb-1">
+                        {isHi ? 'वैकल्पिक कारण (Alternative Causes):' : 'Alternative Causes:'}
+                      </span>
+                      <ul className="list-disc list-inside space-y-0.5 text-stone-600 text-[11px]">
+                        {diagnosisResult.alternativeExplanations.map((alt, i) => (
+                          <li key={i}>{alt}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Recommended Next Steps & Low-Risk Measures */}
+                  <div className="p-3 bg-white rounded-lg border border-stone-200 text-xs mb-3">
                     <span className="font-bold text-stone-800 block mb-1">
-                      {isHi ? 'अनुशंसित कृषि कदम (Recommended Next Steps):' : 'Recommended Next Steps:'}
+                      {isHi ? 'प्राथमिक सुरक्षित कदम व रोकथाम (Next Steps):' : 'Immediate Low-Risk Steps:'}
                     </span>
                     <ol className="list-decimal list-inside space-y-1 text-stone-700 text-[11px] leading-relaxed">
                       {diagnosisResult.recommendedNextSteps.map((step, i) => (
@@ -444,7 +489,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
-                    <span>{isSpeaking ? (isHi ? 'चल रहा है...' : 'Playing...') : isHi ? 'सलाह आवाज में सुनें' : 'Listen Report'}</span>
+                    <span>{isSpeaking ? (isHi ? 'वाचन चल रहा है...' : 'Speaking...') : isHi ? 'जांच रिपोर्ट सुनें' : 'Listen Report'}</span>
                   </button>
 
                   <button
@@ -452,7 +497,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                     className="text-xs text-stone-700 hover:text-emerald-800 font-bold flex items-center gap-1 underline cursor-pointer"
                   >
                     <PhoneCall className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>{isHi ? 'KVK वैज्ञानिक से बात करें' : 'Contact KVK Expert'}</span>
+                    <span>{isHi ? 'सत्यापित KVK वैज्ञानिक से संपर्क करें' : 'Contact KVK Expert'}</span>
                   </button>
                 </div>
               </div>
@@ -461,7 +506,7 @@ export const CropDoctor: React.FC<CropDoctorProps> = ({
                 <div>
                   <Stethoscope className="w-10 h-10 text-stone-300 mx-auto mb-2" />
                   <p className="text-xs text-stone-500 font-medium">
-                    {isHi ? 'जांच शुरू करने के लिए फोटो चुनें और "एआई फसल डॉक्टर से जांचें" पर क्लिक करें।' : 'Select a photo and click Run Diagnosis.'}
+                    {isHi ? 'जांच शुरू करने के लिए फोटो चुनें और "फसल डॉक्टर से जांचें" पर क्लिक करें।' : 'Select a photo and click Run Diagnosis.'}
                   </p>
                 </div>
               </div>
