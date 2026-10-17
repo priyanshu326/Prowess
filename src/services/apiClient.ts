@@ -69,3 +69,26 @@ export async function joinFarmerPool(data: {
   if (!res.ok) throw new Error('Failed to join pool');
   return await res.json();
 }
+
+export async function analyzeCropImageWithGemini(
+  dataUrlOrBase64: string,
+  cropId: CropId,
+  userSymptoms: string = '',
+  location: string = 'Karnal, Haryana'
+): Promise<CropDiagnosisResult | null> {
+  try {
+    let mimeType = 'image/jpeg';
+    let base64 = dataUrlOrBase64;
+    if (dataUrlOrBase64.includes(';base64,')) {
+      const parts = dataUrlOrBase64.split(';base64,');
+      mimeType = parts[0].replace('data:', '');
+      base64 = parts[1];
+    }
+    const result = await analyzeCropPhoto(base64, mimeType, cropId, userSymptoms, location);
+    return result.diagnosis;
+  } catch (err) {
+    console.warn('analyzeCropImageWithGemini fallback:', err);
+    return null;
+  }
+}
+

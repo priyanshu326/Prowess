@@ -38,6 +38,7 @@ import {
 } from './utils/advisoryEngine';
 import { DEMO_CLIMATE_BASELINE, DEMO_MANDI_DATA } from './data/demoData';
 import { fetchLiveSoil, fetchLiveWeather } from './services/apiClient';
+import { FarmerFriendlyHub } from './components/farmer/FarmerFriendlyHub';
 import {
   ShieldAlert,
   Database,
@@ -45,6 +46,8 @@ import {
   Heart,
   Sprout,
   CheckCircle2,
+  PhoneCall,
+  Volume2,
 } from 'lucide-react';
 
 export default function App() {
@@ -56,6 +59,7 @@ export default function App() {
   const [dataMode, setDataMode] = useState<'LIVE_DATA' | 'CACHED_DATA' | 'DEMO_DATA'>('LIVE_DATA');
   const [lastUpdated, setLastUpdated] = useState<string>('आज 11:30 AM');
   const [lowBandwidthMode, setLowBandwidthMode] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'farmer' | 'detailed'>('farmer');
 
   const [farmProfile, setFarmProfile] = useState<FarmProfile>({
     area: 5,
@@ -437,108 +441,212 @@ export default function App() {
         onOpenInfoModal={() => setIsInfoModalOpen(true)}
         onSpeakAdvisory={() => handleSpeak()}
         isSpeaking={isSpeaking}
+        viewMode={viewMode}
+        onToggleViewMode={setViewMode}
       />
 
       {/* Main Single-Page Command Center Grid */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        {/* 2. Top Agricultural Verdict Banner */}
-        <AdvisoryBanner
-          location={selectedLocation}
-          crop={selectedCrop}
-          language={language}
-          simulation={simulation}
-          sowingSafetyScore={sowingScore.totalScore}
-          motorState={soilState.motorState}
-          mandiRecommendation={mandiDecision.recommendationHi}
-          onSpeak={() => handleSpeak()}
-          isSpeaking={isSpeaking}
-        />
-
-        {/* 3. Six Connected Modules */}
-        <div className="space-y-6">
-          {/* Module 1: Fasal Buvai Suraksha */}
-          <div id="module-weather-sowing">
-            <ClimateShield
+        {/* If in Farmer-Friendly Mode: Render FarmerFriendlyHub */}
+        {viewMode === 'farmer' ? (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Primary Farmer Decision Hub */}
+            <FarmerFriendlyHub
               location={selectedLocation}
               crop={selectedCrop}
-              farmProfile={farmProfile}
               language={language}
               currentWeather={currentWeather}
-              calendarDays={calendarDays}
-              climateComparison={climateComparison}
-              sowingScore={sowingScore}
-              accumulatedGdd={480}
-              simulation={simulation}
-              lowBandwidthMode={lowBandwidthMode}
-              onOpenExplainableModal={() => setIsExplainableModalOpen(true)}
-            />
-          </div>
-
-          {/* Module 2: Smart Sinchai Assistant */}
-          <div id="module-soil-irrigation">
-            <VirtualSoilTwin
-              crop={selectedCrop}
-              language={language}
               soilState={soilState}
               simulation={simulation}
-              nextRainfallMm={currentWeather.precipitationMm}
+              sowingScore={sowingScore}
+              mandiData={currentMandiRecord}
+              mandiDecision={mandiDecision}
               onUpdateMotorState={(newState) =>
                 setSoilState((prev) => ({ ...prev, motorState: newState }))
               }
-            />
-          </div>
-
-          {/* Module 3: Fasal Doctor AI */}
-          <div id="module-crop-doctor">
-            <CropDoctor
-              location={selectedLocation}
-              crop={selectedCrop}
-              language={language}
-              diseaseAssessment={diseaseAssessment}
-              simulation={simulation}
-              onSpeakText={handleSpeak}
-              isSpeaking={isSpeaking}
-            />
-          </div>
-
-          {/* Module 4: Mandi Bhav aur Bikri Salah */}
-          <div id="module-mandi-decision">
-            <MandiEngine
-              crop={selectedCrop}
-              language={language}
-              mandiData={currentMandiRecord}
-              weather={currentWeather}
-              simulation={simulation}
-              mandiDecision={mandiDecision}
-              lowBandwidthMode={lowBandwidthMode}
-            />
-          </div>
-
-          {/* Module 5: Kisan Pool — Milkar Bechein */}
-          <div id="module-kisan-pool">
-            <KisaanPool
-              crop={selectedCrop}
-              language={language}
-            />
-          </div>
-
-          {/* Module 6: Har Kisan Tak Salah */}
-          <div id="module-alert-center">
-            <AlertCenter
-              location={selectedLocation}
-              crop={selectedCrop}
-              language={language}
-              simulation={simulation}
-              notifications={notifications}
               onSpeakAdvisory={handleSpeak}
-              onPauseSpeaking={handlePauseSpeaking}
-              onStopSpeaking={handleStopSpeaking}
               isSpeaking={isSpeaking}
-              isPaused={isPaused}
+              onScrollToModule={(moduleId) => {
+                setViewMode('detailed');
+                setTimeout(() => {
+                  const el = document.getElementById(moduleId);
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+              }}
             />
+
+            {/* Quick Link to Deep Research Data */}
+            <div className="bg-white rounded-3xl p-5 border-2 border-stone-200 text-center flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+              <div className="text-left">
+                <div className="font-extrabold text-stone-900 text-base flex items-center gap-2">
+                  <span>📊</span>
+                  <span>
+                    {language === 'hi'
+                      ? 'गहन अनुसंधान डेटा व 10-वर्षीय मौसम ग्राफ देखना चाहते हैं?'
+                      : 'Want to explore 10-year historical weather graphs & formulas?'}
+                  </span>
+                </div>
+                <p className="text-xs text-stone-600 font-medium">
+                  {language === 'hi'
+                    ? 'कृषि वैज्ञानिक व जज विस्तृत मोड में Recharts ग्राफ, मृदा गहराई री-एनालिसिस और GDD फॉर्मूले देख सकते हैं।'
+                    : 'Scientists and judges can inspect dual-depth reanalysis, GDD calculations, and 7-day mandi trends.'}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setViewMode('detailed')}
+                className="px-5 py-2.5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-xs sm:text-sm cursor-pointer transition-transform active:scale-95 shrink-0"
+              >
+                {language === 'hi' ? 'विस्तृत आंकड़े देखें ➔' : 'Open Detailed Data ➔'}
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Detailed Mode Header with Easy Mode Return Banner */}
+            <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+              <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                <span>📊</span>
+                <span>
+                  {language === 'hi'
+                    ? 'आप विस्तृत डेटा मोड में हैं (10-वर्षीय जलवायु, मृदा गहराई, रोग रडार व मंडी ग्राफ)'
+                    : 'Viewing Detailed Mode (10-Year Climate, Soil Twin, Disease Radar & Mandi Charts)'}
+                </span>
+              </span>
+              <button
+                onClick={() => setViewMode('farmer')}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 text-white font-black hover:bg-emerald-800 cursor-pointer transition-colors"
+              >
+                🌾 {language === 'hi' ? 'सरल किसान दृश्य पर लौटें' : 'Back to Farmer Mode'}
+              </button>
+            </div>
+
+            {/* 2. Top Agricultural Verdict Banner */}
+            <AdvisoryBanner
+              location={selectedLocation}
+              crop={selectedCrop}
+              language={language}
+              simulation={simulation}
+              sowingSafetyScore={sowingScore.totalScore}
+              motorState={soilState.motorState}
+              mandiRecommendation={mandiDecision.recommendationHi}
+              onSpeak={() => handleSpeak()}
+              isSpeaking={isSpeaking}
+            />
+
+            {/* 3. Six Connected Modules */}
+            <div className="space-y-6">
+              {/* Module 1: Fasal Buvai Suraksha */}
+              <div id="module-weather-sowing">
+                <ClimateShield
+                  location={selectedLocation}
+                  crop={selectedCrop}
+                  farmProfile={farmProfile}
+                  language={language}
+                  currentWeather={currentWeather}
+                  calendarDays={calendarDays}
+                  climateComparison={climateComparison}
+                  sowingScore={sowingScore}
+                  accumulatedGdd={480}
+                  simulation={simulation}
+                  lowBandwidthMode={lowBandwidthMode}
+                  onOpenExplainableModal={() => setIsExplainableModalOpen(true)}
+                />
+              </div>
+
+              {/* Module 2: Smart Sinchai Assistant */}
+              <div id="module-soil-irrigation">
+                <VirtualSoilTwin
+                  crop={selectedCrop}
+                  language={language}
+                  soilState={soilState}
+                  simulation={simulation}
+                  nextRainfallMm={currentWeather.precipitationMm}
+                  onUpdateMotorState={(newState) =>
+                    setSoilState((prev) => ({ ...prev, motorState: newState }))
+                  }
+                />
+              </div>
+
+              {/* Module 3: Fasal Doctor AI */}
+              <div id="module-crop-doctor">
+                <CropDoctor
+                  location={selectedLocation}
+                  crop={selectedCrop}
+                  language={language}
+                  diseaseAssessment={diseaseAssessment}
+                  simulation={simulation}
+                  onSpeakText={handleSpeak}
+                  isSpeaking={isSpeaking}
+                />
+              </div>
+
+              {/* Module 4: Mandi Bhav aur Bikri Salah */}
+              <div id="module-mandi-decision">
+                <MandiEngine
+                  crop={selectedCrop}
+                  language={language}
+                  mandiData={currentMandiRecord}
+                  weather={currentWeather}
+                  simulation={simulation}
+                  mandiDecision={mandiDecision}
+                  lowBandwidthMode={lowBandwidthMode}
+                />
+              </div>
+
+              {/* Module 5: Kisan Pool — Milkar Bechein */}
+              <div id="module-kisan-pool">
+                <KisaanPool
+                  crop={selectedCrop}
+                  language={language}
+                />
+              </div>
+
+              {/* Module 6: Har Kisan Tak Salah */}
+              <div id="module-alert-center">
+                <AlertCenter
+                  location={selectedLocation}
+                  crop={selectedCrop}
+                  language={language}
+                  simulation={simulation}
+                  notifications={notifications}
+                  onSpeakAdvisory={handleSpeak}
+                  onPauseSpeaking={handlePauseSpeaking}
+                  onStopSpeaking={handleStopSpeaking}
+                  isSpeaking={isSpeaking}
+                  isPaused={isPaused}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Floating Bottom Quick Bar for Mobile Farmers */}
+      <aside aria-label="Quick Actions" className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-lg bg-stone-900/90 backdrop-blur-md text-white rounded-full px-4 py-2.5 shadow-2xl border border-white/20 flex items-center justify-between text-xs font-bold sm:hidden">
+        <button
+          onClick={() => handleSpeak()}
+          className="flex items-center gap-1.5 text-amber-300 active:scale-95 transition-transform"
+        >
+          <Volume2 className="w-4 h-4" />
+          <span>{isSpeaking ? (language === 'hi' ? 'बोल रहा है...' : 'Speaking') : language === 'hi' ? 'सलाह सुनें' : 'Listen'}</span>
+        </button>
+
+        <a
+          href="tel:18001801551"
+          className="flex items-center gap-1.5 text-emerald-300"
+        >
+          <PhoneCall className="w-3.5 h-3.5" />
+          <span>1800-180-1551</span>
+        </a>
+
+        <button
+          onClick={() => setViewMode(viewMode === 'farmer' ? 'detailed' : 'farmer')}
+          className="bg-emerald-600 px-3 py-1 rounded-full text-white text-[11px] font-black"
+        >
+          {viewMode === 'farmer' ? (language === 'hi' ? '📊 ग्राफ देखें' : 'Charts') : (language === 'hi' ? '🌾 सरल दृश्य' : 'Simple')}
+        </button>
+      </aside>
 
       {/* Footer with Data Provenance & Hackathon Credits */}
       <footer className="mt-12 bg-white border-t border-stone-200 py-8 px-4 sm:px-6">
