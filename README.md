@@ -1,6 +1,6 @@
 # 🌾 Kisaan Sathi (किसान साथी)
 ## AI-Powered Sowing and Harvesting Risk Intelligence Platform
-> **IIT Delhi Hackathon • Problem 2.1: Uncertain Sowing and Harvesting**  
+> **IIIT Delhi Hackathon • Problem 2.1: Uncertain Sowing and Harvesting**  
 > *"Beej se Bazaar Tak, Har Faisle Mein Kisaan Ka Sathi"*
 
 ---
