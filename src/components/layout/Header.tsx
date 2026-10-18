@@ -51,23 +51,6 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
-          {onToggleChatbot && (
-            <button
-              onClick={onToggleChatbot}
-              className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border ${
-                isChatbotOpen
-                  ? 'bg-emerald-800 text-white border-emerald-900 shadow-xs'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
-              }`}
-              title={isHi ? 'AI सहायक (बोलकर या लिखकर पूछें)' : 'Toggle AI Assistant'}
-            >
-              <span className="text-base">🤖</span>
-              <span className="text-xs font-black hidden sm:inline">
-                {isHi ? 'AI मित्र' : 'AI Chat'}
-              </span>
-            </button>
-          )}
-
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-emerald-800 to-green-700 flex items-center justify-center text-white shadow-md shadow-emerald-800/20 shrink-0">
             <Sprout className="w-6 h-6 text-emerald-100" />
           </div>
@@ -86,18 +69,36 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: Voice Assistant, Language, Helpline */}
+        {/* Right Actions: AI Chat Assistant, Voice Assistant, Language, Helpline */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {onToggleChatbot && (
+            <button
+              onClick={onToggleChatbot}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer shadow-xs ${
+                isChatbotOpen
+                  ? 'bg-emerald-800 text-white border-emerald-900 shadow-sm'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+              }`}
+              title={isHi ? 'AI सहायक (दाहिने कोने में)' : 'Toggle AI Assistant'}
+            >
+              <span className="text-sm">🤖</span>
+              <span className="font-bold">
+                {isHi ? 'AI मित्र' : 'AI Chat'}
+              </span>
+            </button>
+          )}
+
           {/* Audio Advice Button */}
           <button
             onClick={onSpeakAdvisory}
-            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer shadow-sm active:scale-95 ${
+            className={`flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer shadow-sm active:scale-95 ${
               isSpeaking
                 ? 'bg-amber-400 text-stone-950 ring-2 ring-amber-300 animate-pulse'
                 : 'bg-emerald-700 hover:bg-emerald-800 text-white'
             }`}
             title={isHi ? 'पूरी सलाह बोलकर सुनें' : 'Listen to advisory in voice'}
           >
+
             {isSpeaking ? (
               <>
                 <VolumeX className="w-4 h-4 text-stone-950" />

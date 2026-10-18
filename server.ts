@@ -691,39 +691,60 @@ Behavior & Tone Guidelines:
         parts: [{ text: userQuery }],
       });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: formattedContents,
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-        },
-      });
+      // Call Gemini with primary fast model gemini-3.1-flash-lite, with timeout protection
+      const geminiPromise = (async () => {
+        try {
+          return await ai.models.generateContent({
+            model: 'gemini-3.1-flash-lite',
+            contents: formattedContents,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+            },
+          });
+        } catch (_flashLiteErr) {
+          // Secondary fallback
+          return await ai.models.generateContent({
+            model: 'gemini-flash-latest',
+            contents: formattedContents,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+            },
+          });
+        }
+      })();
 
-      const replyText = response.text || 'राम-राम किसान भाई! आपका सवाल प्राप्त हुआ। कृपया खेत की अधिक जानकारी दें।';
+      // 9-second timeout protection to prevent browser hanging
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 9000));
+      const response = await Promise.race([geminiPromise, timeoutPromise]);
 
-      // Smart suggested follow-ups
-      let suggestedQuestions = isHi
-        ? ['सिंचाई कब करनी चाहिए?', 'मंडी भाव में आगे क्या उम्मीद है?', 'खाद की कितनी मात्रा डालें?']
-        : ['When should I irrigate?', 'What is the mandi price trend?', 'Recommended fertilizer dosage?'];
+      if (response && response.text) {
+        const replyText = response.text.trim();
 
-      if (userQuery.includes('सिंचाई') || userQuery.toLowerCase().includes('irrigation')) {
-        suggestedQuestions = isHi
-          ? ['जमीन में अभी कितनी नमी है?', 'क्या नलकूप चलाने से डीजल का खर्च बचेगा?', 'गेहूं में दूसरी सिंचाई कब करें?']
-          : ['Current root zone moisture?', 'How much diesel will I save?', 'Timing for 2nd irrigation?'];
-      } else if (userQuery.includes('मंडी') || userQuery.toLowerCase().includes('price') || userQuery.toLowerCase().includes('mandi')) {
-        suggestedQuestions = isHi
-          ? ['किसान पूल में उपज कैसे जोड़ें?', 'थोक खरीदार से कितना बोनस मिलेगा?', 'अगले हफ्ते भाव बढ़ने की उम्मीद है?']
-          : ['How to join Kisan Pool?', 'Bonus from wholesale buyers?', 'Price forecast for next week?'];
+        // Smart suggested follow-ups
+        let suggestedQuestions = isHi
+          ? ['सिंचाई कब करनी चाहिए?', 'मंडी भाव में आगे क्या उम्मीद है?', 'खाद की कितनी मात्रा डालें?']
+          : ['When should I irrigate?', 'What is the mandi price trend?', 'Recommended fertilizer dosage?'];
+
+        if (userQuery.includes('सिंचाई') || userQuery.toLowerCase().includes('irrigation')) {
+          suggestedQuestions = isHi
+            ? ['जमीन में अभी कितनी नमी है?', 'क्या नलकूप चलाने से डीजल का खर्च बचेगा?', 'गेहूं में दूसरी सिंचाई कब करें?']
+            : ['Current root zone moisture?', 'How much diesel will I save?', 'Timing for 2nd irrigation?'];
+        } else if (userQuery.includes('मंडी') || userQuery.toLowerCase().includes('price') || userQuery.toLowerCase().includes('mandi')) {
+          suggestedQuestions = isHi
+            ? ['किसान पूल में उपज कैसे जोड़ें?', 'थोक खरीदार से कितना बोनस मिलेगा?', 'अगले हफ्ते भाव बढ़ने की उम्मीद है?']
+            : ['How to join Kisan Pool?', 'Bonus from wholesale buyers?', 'Price forecast for next week?'];
+        }
+
+        return res.json({
+          success: true,
+          reply: replyText,
+          source: 'gemini-3.1-flash-lite',
+          suggestedQuestions,
+          transcribedQuery: userQuery,
+        });
       }
-
-      return res.json({
-        success: true,
-        reply: replyText,
-        source: 'gemini-3.8-flash',
-        suggestedQuestions,
-        transcribedQuery: userQuery,
-      });
     } catch (err) {
       console.warn('Gemini chat API error, falling back to local agronomist engine:', (err as Error).message);
     }

@@ -301,33 +301,11 @@ export default function App() {
         isChatbotOpen={!isChatbotCollapsed || isMobileChatOpen}
       />
 
-      {/* 2. Main Layout Container: Left Narrow AI Assistant + Dashboard Content */}
+      {/* 2. Main Layout Container: Dashboard Content + Right Corner AI Assistant */}
       <div className="flex-1 flex flex-row w-full max-w-[1440px] mx-auto items-start relative">
-        {/* Left Narrow AI Chatbot Assistant (Voice or Type inputs) */}
-        <AiChatAssistant
-          selectedLocation={selectedLocation}
-          selectedCrop={selectedCrop}
-          currentTempC={currentWeather.temperatureC}
-          weatherDesc={isHi ? currentWeather.weatherDescriptionHi : currentWeather.weatherDescriptionEn}
-          rootMoisturePct={soilState.rootZoneMoisturePct}
-          mandiPriceInr={currentMandiRecord.modalPriceInr}
-          language={language}
-          isCollapsed={isChatbotCollapsed}
-          onToggleCollapse={() => setIsChatbotCollapsed((prev) => !prev)}
-          isMobileOpen={isMobileChatOpen}
-          onCloseMobile={() => setIsMobileChatOpen(false)}
-        />
-
-        {/* Mobile backdrop when left drawer is open */}
-        {isMobileChatOpen && (
-          <div
-            onClick={() => setIsMobileChatOpen(false)}
-            className="lg:hidden fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-40 transition-opacity"
-          />
-        )}
-
-        {/* Main Dashboard Content */}
+        {/* Main Dashboard Content (Left / Center) */}
         <main className="flex-1 min-w-0 px-3 sm:px-6 py-4 sm:py-6 space-y-6">
+
         
         {/* HERO CARD: आज का मुख्य फैसला (Today's Key Farm Verdict) */}
         <section className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-green-900 text-white rounded-3xl p-5 sm:p-7 shadow-xl border border-emerald-700/50 relative overflow-hidden">
@@ -1029,7 +1007,58 @@ export default function App() {
 
         </div>
       </main>
+
+      {/* Right Corner AI Chatbot Assistant (Voice & Type Inputs) */}
+      <AiChatAssistant
+        selectedLocation={selectedLocation}
+        selectedCrop={selectedCrop}
+        currentTempC={currentWeather.temperatureC}
+        weatherDesc={isHi ? currentWeather.weatherDescriptionHi : currentWeather.weatherDescriptionEn}
+        rootMoisturePct={soilState.rootZoneMoisturePct}
+        mandiPriceInr={currentMandiRecord.modalPriceInr}
+        language={language}
+        isCollapsed={isChatbotCollapsed}
+        onToggleCollapse={() => setIsChatbotCollapsed((prev) => !prev)}
+        isMobileOpen={isMobileChatOpen}
+        onCloseMobile={() => setIsMobileChatOpen(false)}
+      />
+
+      {/* Mobile backdrop when right drawer is open */}
+      {isMobileChatOpen && (
+        <div
+          onClick={() => setIsMobileChatOpen(false)}
+          className="lg:hidden fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-40 transition-opacity"
+        />
+      )}
       </div>
+
+      {/* Floating Right Corner Launcher Button */}
+      {(isChatbotCollapsed || !isMobileChatOpen) && (
+        <button
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+              setIsMobileChatOpen(true);
+            } else {
+              setIsChatbotCollapsed(false);
+            }
+          }}
+          className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-emerald-800 to-green-700 hover:from-emerald-700 hover:to-green-600 text-white pl-3.5 pr-4 py-2.5 rounded-full shadow-2xl border-2 border-emerald-300 flex items-center gap-2.5 cursor-pointer active:scale-95 transition-all hover:scale-105"
+          title={isHi ? 'AI कृषि मित्र (वॉयस व टाइपिंग)' : 'Kisan AI Chatbot'}
+        >
+          <div className="w-8 h-8 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+            🤖
+          </div>
+          <div className="text-left">
+            <div className="text-xs font-black tracking-wide leading-tight">
+              {isHi ? 'AI कृषि मित्र' : 'Kisan AI'}
+            </div>
+            <div className="text-[10px] text-emerald-200 leading-tight">
+              {isHi ? 'बोलें या लिखें' : 'Voice & Typing'}
+            </div>
+          </div>
+        </button>
+      )}
+
 
       {/* 5. Mobile Sticky Bottom Quick Bar with Voice AI */}
       <aside aria-label="Quick Actions" className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-md bg-stone-900/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl border border-white/20 flex items-center justify-between text-xs font-bold sm:hidden">

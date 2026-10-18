@@ -9,6 +9,7 @@ import {
   User,
   RotateCcw,
   ChevronLeft,
+  ChevronRight,
   X,
   Square,
   Play,
@@ -526,17 +527,17 @@ export const AiChatAssistant: React.FC<AiChatAssistantProps> = ({
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Collapsed Sidebar Rail View on Desktop
+  // Collapsed Sidebar Rail View on Desktop (Right Corner)
   if (isCollapsed) {
     return (
-      <aside className="hidden lg:flex flex-col items-center py-4 bg-emerald-950 text-white w-16 border-r border-emerald-900 shrink-0 select-none transition-all duration-300">
+      <aside className="hidden lg:flex flex-col items-center py-4 bg-emerald-950 text-white w-16 border-l border-emerald-900 shrink-0 select-none transition-all duration-300">
         <button
           onClick={onToggleCollapse}
           className="p-2.5 rounded-2xl bg-emerald-800 hover:bg-emerald-700 text-white cursor-pointer transition-all shadow-md group relative"
           title={isHi ? 'AI सहायक खोलें' : 'Open AI Assistant'}
         >
           <Bot className="w-5 h-5 text-emerald-200" />
-          <span className="absolute left-full ml-2 px-2.5 py-1 bg-stone-900 text-white text-xs font-semibold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg z-50">
+          <span className="absolute right-full mr-2 px-2.5 py-1 bg-stone-900 text-white text-xs font-semibold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg z-50">
             {isHi ? 'AI चैट सहायक खोलें' : 'Open AI Assistant'}
           </span>
         </button>
@@ -546,7 +547,7 @@ export const AiChatAssistant: React.FC<AiChatAssistantProps> = ({
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <div
             onClick={onToggleCollapse}
-            className="cursor-pointer text-[13px] font-black tracking-widest text-emerald-300/90 [writing-mode:vertical-rl] rotate-180 hover:text-white transition-colors"
+            className="cursor-pointer text-[13px] font-black tracking-widest text-emerald-300/90 [writing-mode:vertical-rl] hover:text-white transition-colors"
           >
             {isHi ? '🌾 AI कृषि मित्र (Typing व Voice)' : '🌾 KISAN AI ASSISTANT'}
           </div>
@@ -562,7 +563,7 @@ export const AiChatAssistant: React.FC<AiChatAssistantProps> = ({
           title={isHi ? 'वॉयस संदेश भेजें' : 'Send Voice Message'}
         >
           <Mic className="w-5 h-5" />
-          <span className="absolute left-full ml-2 px-2.5 py-1 bg-stone-900 text-white text-xs font-semibold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg z-50">
+          <span className="absolute right-full mr-2 px-2.5 py-1 bg-stone-900 text-white text-xs font-semibold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg z-50">
             {isHi ? 'वॉयस नोट भेजें' : 'Voice Note'}
           </span>
         </button>
@@ -570,13 +571,13 @@ export const AiChatAssistant: React.FC<AiChatAssistantProps> = ({
     );
   }
 
-  // Full Expanded Left Narrow AI Chatbot
+  // Full Expanded Right Corner AI Chatbot
   return (
     <aside
       className={`
-        bg-white border-r border-stone-200 flex flex-col shrink-0 transition-all duration-300 z-40
-        hidden lg:flex lg:w-80 xl:w-[340px] h-[calc(100vh-100px)] sticky top-[100px]
-        ${isMobileOpen ? '!flex fixed inset-y-0 left-0 w-[90vw] max-w-sm z-50 shadow-2xl h-screen' : ''}
+        bg-white border-l border-stone-200 flex flex-col shrink-0 transition-all duration-300 z-40
+        hidden lg:flex lg:w-80 xl:w-[350px] h-[calc(100vh-100px)] sticky top-[100px]
+        ${isMobileOpen ? '!flex fixed inset-y-0 right-0 w-[92vw] max-w-sm z-50 shadow-2xl h-screen' : ''}
       `}
     >
       {/* 1. Header with Status & Close */}
@@ -615,9 +616,9 @@ export const AiChatAssistant: React.FC<AiChatAssistantProps> = ({
             <button
               onClick={onToggleCollapse}
               className="hidden lg:flex p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-emerald-700/60 transition-colors cursor-pointer"
-              title={isHi ? 'साइडबार समेटें' : 'Collapse'}
+              title={isHi ? 'साइडबार समेटें' : 'Collapse to right'}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4" />
             </button>
             {isMobileOpen && (
               <button
@@ -629,6 +630,7 @@ export const AiChatAssistant: React.FC<AiChatAssistantProps> = ({
             )}
           </div>
         </div>
+
 
         {/* Live Farm Context Pills */}
         <div className="mt-2.5 pt-2 border-t border-emerald-700/60 flex items-center gap-1.5 flex-wrap text-[11px] font-semibold text-emerald-100">
