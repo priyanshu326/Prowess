@@ -582,6 +582,221 @@ Return your diagnosis in structured JSON matching this schema:
   });
 });
 
+// Route: POST /api/chat (AI Chatbot Assistant for Farmers)
+app.post(['/api/chat', '/api/ai-assistant/chat'], async (req: Request, res: Response) => {
+  const { message, history = [], context = {} } = req.body;
+
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ success: false, error: 'कृपया अपना सवाल लिखें या बोलें।' });
+  }
+
+  const userQuery = message.trim();
+  const apiKey = process.env.GEMINI_API_KEY;
+  const isHi = context.language !== 'en';
+
+  // If Gemini API key is available, call gemini-3.8-flash
+  if (apiKey) {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const systemInstruction = `
+You are "Kisan Saathi AI Sahayak" (किसान साथी AI कृषि मित्र / डिजिटल कृषि विशेषज्ञ), an empathetic, highly knowledgeable agricultural expert serving Indian farmers.
+
+Current Farmer Field Context:
+- Selected Location: ${context.location || 'करनाल, हरियाणा (Karnal, Haryana)'}
+- Crop: ${context.crop || 'गेहूं (Wheat)'}
+- Current Temperature: ${context.temperatureC ?? 26}°C
+- Weather Forecast: ${context.weatherDesc || 'साफ धूप, बारिश नहीं'}
+- Root-Zone Soil Moisture: ${context.rootZoneMoisturePct ?? 62}% (Adequate/पर्याप्त)
+- Mandi Price: ₹${context.mandiPriceInr ?? 2420} / क्विंटल
+
+Behavior & Tone Guidelines:
+1. Greet the farmer warmly using respectful Indian phrases like "राम-राम किसान भाई!" or "नमस्ते किसान भाई!".
+2. Respond in the language used by the farmer (Hindi in Devanagari script by default, or English if they ask in English).
+3. Be practical, direct, and actionable. Avoid complex academic jargon. Break instructions into clear, bulleted points.
+4. Reference the live field context (temperature, moisture, weather, mandi rate) when answering questions on irrigation, sowing, or selling.
+5. CRITICAL SAFETY: Never prescribe lethal chemical poisons or extreme agrochemical doses. For chemical sprays, always recommend consulting the nearest Krishi Vigyan Kendra (KVK) or calling Kisan Call Centre (1800-180-1551).
+6. Keep replies concise and easy to read or listen to on a mobile screen in bright sunlight (maximum 3-4 short paragraphs or bullet points).
+`;
+
+      // Build conversation contents including history
+      const formattedContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+      // Include previous 4 history turns for context
+      const recentHistory = Array.isArray(history) ? history.slice(-4) : [];
+      for (const h of recentHistory) {
+        if (h && h.text && (h.role === 'user' || h.role === 'model')) {
+          formattedContents.push({
+            role: h.role,
+            parts: [{ text: h.text }],
+          });
+        }
+      }
+
+      // Add current message
+      formattedContents.push({
+        role: 'user',
+        parts: [{ text: userQuery }],
+      });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: formattedContents,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        },
+      });
+
+      const replyText = response.text || 'राम-राम किसान भाई! आपका सवाल प्राप्त हुआ। कृपया खेत की अधिक जानकारी दें।';
+
+      // Smart suggested follow-ups
+      let suggestedQuestions = isHi
+        ? ['सिंचाई कब करनी चाहिए?', 'मंडी भाव में आगे क्या उम्मीद है?', 'खाद की कितनी मात्रा डालें?']
+        : ['When should I irrigate?', 'What is the mandi price trend?', 'Recommended fertilizer dosage?'];
+
+      if (userQuery.includes('सिंचाई') || userQuery.toLowerCase().includes('irrigation')) {
+        suggestedQuestions = isHi
+          ? ['जमीन में अभी कितनी नमी है?', 'क्या नलकूप चलाने से डीजल का खर्च बचेगा?', 'गेहूं में दूसरी सिंचाई कब करें?']
+          : ['Current root zone moisture?', 'How much diesel will I save?', 'Timing for 2nd irrigation?'];
+      } else if (userQuery.includes('मंडी') || userQuery.toLowerCase().includes('price') || userQuery.toLowerCase().includes('mandi')) {
+        suggestedQuestions = isHi
+          ? ['किसान पूल में उपज कैसे जोड़ें?', 'थोक खरीदार से कितना बोनस मिलेगा?', 'अगले हफ्ते भाव बढ़ने की उम्मीद है?']
+          : ['How to join Kisan Pool?', 'Bonus from wholesale buyers?', 'Price forecast for next week?'];
+      }
+
+      return res.json({
+        success: true,
+        reply: replyText,
+        source: 'gemini-3.8-flash',
+        suggestedQuestions,
+      });
+    } catch (err) {
+      console.warn('Gemini chat API error, falling back to local agronomist engine:', (err as Error).message);
+    }
+  }
+
+  // Intelligent Agronomic Rule-Based Fallback
+  const qLower = userQuery.toLowerCase();
+  let reply = '';
+  let suggestedQuestions: string[] = [];
+
+  if (qLower.includes('सिंचाई') || qLower.includes('पानी') || qLower.includes('irrigation') || qLower.includes('water') || qLower.includes('मोटर')) {
+    reply = isHi
+      ? `🌾 **सिंचाई सलाह (Kisan Saathi)**:
+• **वर्तमान स्थिति**: आपके खेत के जड़ क्षेत्र में अभी **62% नमी** है, जो गेहूं/फसल के लिए पर्याप्त है।
+• **फैसला**: आज नलकूप चलाने की जरूरत नहीं है। ऐसा करने से लगभग **₹350 का डीजल** और 25,000 लीटर पानी बचेगा।
+• **अगली सिंचाई**: अगले 48 घंटे में मौसम साफ रहेगा। 3 दिन बाद सतही नमी की जांच करके ही हल्की सिंचाई करें।`
+      : `🌾 **Irrigation Advisory**:
+• **Current Soil State**: Root-zone moisture is at **62%**, which is well within the optimal envelope.
+• **Action**: Hold irrigation today. Skipping unnecessary pumping saves approx **₹350 diesel** and 25,000L water.
+• **Next Window**: Weather remains dry for 48 hours; re-check shallow moisture in 3 days before light watering.`;
+
+    suggestedQuestions = isHi
+      ? ['जमीन में नमी कैसे नापें?', 'खाद देने का सही समय क्या है?', 'मंडी भाव क्या है?']
+      : ['How to check soil moisture?', 'Best time for fertilizer?', 'What is current Mandi rate?'];
+
+  } else if (qLower.includes('बुवाई') || qLower.includes('कटाई') || qLower.includes('sow') || qLower.includes('harvest') || qLower.includes('seed')) {
+    reply = isHi
+      ? `🌱 **बुवाई व कटाई सुरक्षा**:
+• **मौसम अनुकूलता**: अगले 7 दिनों में भारी वर्षा का कोई खतरा नहीं है (बारिश का जोखिम < 10%)।
+• **तापमान**: औसत तापमान 18°C से 28°C के बीच है, जो रबी गेहूं की बुवाई और अंकुरण के लिए श्रेष्ठ है।
+• **सुझाव**: बीज को ट्राइकोडर्मा या अनुशंसित फफूंदनाशी से उपचारित (Seed Treatment) करके ही बोएं।`
+      : `🌱 **Sowing & Harvesting Intelligence**:
+• **Weather Favorable**: No heavy rainfall risk for next 7 days (<10% rain chance).
+• **Temperature**: 18°C to 28°C is ideal for Rabi wheat germination.
+• **Recommendation**: Ensure seed treatment with Trichoderma or certified fungicide prior to sowing.`;
+
+    suggestedQuestions = isHi
+      ? ['एक एकड़ में कितना बीज लगेगा?', 'पहली सिंचाई कितने दिन बाद करें?', 'मंडी में गेहूं का भाव क्या है?']
+      : ['Seed rate per acre?', 'Days after sowing for 1st irrigation?', 'Wheat mandi price?'];
+
+  } else if (qLower.includes('खाद') || qLower.includes('यूरिया') || qLower.includes('dap') || qLower.includes('fertilizer') || qLower.includes('npk')) {
+    reply = isHi
+      ? `🧪 **संतुलित पोषक तत्व प्रबंधन (ICAR दिशानिर्देश)**:
+• **बुवाई के समय**: 1 एकड़ गेहूं के लिए 50 किग्रा डीएपी (DAP) व 20 किग्रा पोटाश (MOP) आधार खाद के रूप में दें।
+• **यूरिया प्रबंधन**: यूरिया को एक साथ न डालें। बुवाई के 21 दिन बाद पहली सिंचाई के समय आधा बैग यूरिया और कल्ले फूटते समय दूसरा भाग दें।
+• **जिंक की कमी**: यदि मिट्टी में जिंक कम है तो 5 किग्रा जिंक सल्फेट 33% का प्रयोग करें।`
+      : `🧪 **Nutrient & Fertilizer Management**:
+• **Basal Dose**: Apply 50 kg DAP and 20 kg MOP per acre at sowing time.
+• **Urea Scheduling**: Split urea into 2-3 top dressings; first split at Crown Root Initiation (21 DAS) right after first irrigation.
+• **Micro-nutrients**: Apply 5 kg 33% Zinc Sulphate if micronutrient deficiency exists.`;
+
+    suggestedQuestions = isHi
+      ? ['यूरिया डालने के बाद पानी कब लगाएं?', 'पीले पत्तों के लिए क्या स्प्रे करें?', 'सिंचाई की जरूरत है क्या?']
+      : ['Watering after urea application?', 'Spray for yellow leaves?', 'Is irrigation needed today?'];
+
+  } else if (qLower.includes('मंडी') || qLower.includes('भाव') || qLower.includes('रेट') || qLower.includes('mandi') || qLower.includes('price') || qLower.includes('बिक्री') || qLower.includes('pool')) {
+    reply = isHi
+      ? `💰 **मंडी भाव व सामूहिक बिक्री (Kisan Pool)**:
+• **स्थानीय मंडी भाव**: करनाल / दिल्ली मंडी में गेहूं का मॉडल भाव **₹2,420 / क्विंटल** चल रहा है।
+• **सामूहिक बिक्री का लाभ**: हमारे "किसान समूह" में 14 किसान मिलकर 85 क्विंटल एकत्र कर चुके हैं। 100 क्विंटल का लॉट पूरा होते ही खरीदार **₹2,540 / क्विंटल** (₹120 अतिरिक्त) दे रहे हैं।
+• **आपकी कमाई**: अपने 10-15 क्विंटल जोड़कर आप तुरंत अधिक मुनाफा पा सकते हैं।`
+      : `💰 **Mandi Price & Collective Selling**:
+• **Local Mandi Rate**: Karnal/Delhi modal price is **₹2,420 / quintal**.
+• **Kisan Pool Advantage**: 14 farmers have aggregated 85 quintals. At 100 quintals, institutional buyers offer **₹2,540 / quintal** (+₹120 premium).
+• **Action**: Add your quintals in the Kisan Pool tab to unlock the bulk bonus.`;
+
+    suggestedQuestions = isHi
+      ? ['किसान पूल में नाम कैसे दर्ज करें?', 'खरीदार का भुगतान कितने दिन में आता है?', 'मौसम का हाल क्या है?']
+      : ['How to join the pool?', 'Payment timeline from buyer?', '7-day weather outlook?'];
+
+  } else if (qLower.includes('कीट') || qLower.includes('रोग') || qLower.includes('पत्ती') || qLower.includes('pest') || qLower.includes('disease') || qLower.includes('fungus')) {
+    reply = isHi
+      ? `🔬 **फसल स्वास्थ्य व रोग नियंत्रण**:
+• **पत्ती जांच**: यदि पत्तियां पीली पड़ रही हैं या धब्बे हैं, तो ऊपर "फसल डॉक्टर" टैब में फोटो खींचकर तुरंत जांचें।
+• **पीला रतुआ सतर्कता**: ठंडे व नम मौसम में गेहूं में पीला रतुआ का खतरा रहता है। पत्तियों पर पीला चूर्ण दिखे तो स्थानीय KVK से संपर्क करें।
+• **सुरक्षा नियम**: किसी भी रासायनिक कीटनाशक का छिड़काव करने से पहले कृषि विज्ञान केंद्र (KVK) विशेषज्ञ या किसान कॉल सेंटर 1800-180-1551 पर मुफ्त सलाह अवश्य लें।`
+      : `🔬 **Crop Health & Disease Defense**:
+• **Photo Check**: Use the Crop Doctor tab above to take or upload a leaf photo for immediate AI identification.
+• **Yellow Rust Caution**: High humidity and cool winds can trigger rust. Look for powdery stripes.
+• **Safety Rule**: Always verify chemical spraying doses with your nearest KVK or Kisan Call Centre (1800-180-1551).`;
+
+    suggestedQuestions = isHi
+      ? ['फसल डॉक्टर में फोटो कैसे अपलोड करें?', 'नीम तेल का स्प्रे कैसे बनाएं?', 'सिंचाई रोकनी चाहिए क्या?']
+      : ['How to upload photo to Crop Doctor?', 'Neem oil spray preparation?', 'Should I stop irrigation?'];
+
+  } else {
+    reply = isHi
+      ? `राम-राम किसान भाई! मैं आपका डिजिटल **किसान साथी AI मित्र** हूँ। 
+
+आप मुझसे बेझिझक पूछ सकते हैं:
+1. 💧 **सिंचाई**: क्या आज पानी लगाना चाहिए या रुकना चाहिए?
+2. 🌱 **बुवाई व खाद**: बीज उपचार, खाद की सही मात्रा व बुवाई का समय।
+3. 🌤️ **मौसम व जोखिम**: बारिश की संभावना और फसल सुरक्षा।
+4. 💰 **मंडी भाव व पूल**: आज के भाव और समूह में बेचकर अधिक मुनाफा।
+
+आप बोलकर (माइक दबाकर) या टाइप करके कोई भी सवाल पूछ सकते हैं!`
+      : `Hello Farmer Friend! I am your **Kisan Saathi AI Assistant**.
+
+Feel free to ask about:
+1. 💧 **Irrigation**: Should you irrigate today or wait?
+2. 🌱 **Sowing & Nutrition**: Best sowing windows, seed treatment, and fertilizer schedule.
+3. 🌤️ **Weather & Hazards**: Rainfall risks and wind alerts.
+4. 💰 **Mandi Prices & Kisan Pool**: Real-time prices and collective selling benefits.
+
+You can ask anything by tapping the mic to speak or typing!`;
+
+    suggestedQuestions = isHi
+      ? ['क्या आज गेहूं में पानी लगाना चाहिए?', 'अगले 7 दिन का मौसम कैसा रहेगा?', 'मंडी में आज का ताजा भाव क्या है?']
+      : ['Should I irrigate wheat today?', 'How is the 7-day weather?', 'What is today\'s mandi price?'];
+  }
+
+  res.json({
+    success: true,
+    reply,
+    source: 'agronomic-engine-fallback',
+    suggestedQuestions,
+  });
+});
+
 // Route: GET /api/mandi/prices & GET /api/mandi
 app.get(['/api/mandi/prices', '/api/mandi'], (req: Request, res: Response) => {
   const crop = String(req.query.crop || 'wheat').toLowerCase();

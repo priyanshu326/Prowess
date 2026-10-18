@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/layout/Header';
+import { AiChatAssistant } from './components/chat/AiChatAssistant';
 import {
   CalendarDayAdvisory,
   CropConfig,
@@ -39,6 +40,8 @@ import {
   ShieldCheck,
   ChevronRight,
   Info,
+  Bot,
+  Mic,
 } from 'lucide-react';
 
 export default function App() {
@@ -47,6 +50,10 @@ export default function App() {
   const [selectedCrop, setSelectedCrop] = useState<CropConfig>(CROP_CONFIGS.wheat);
   const [language, setLanguage] = useState<Language>('hi');
   const [activeTab, setActiveTab] = useState<'all' | 'weather' | 'irrigation' | 'sowing' | 'mandi' | 'doctor' | 'pool'>('all');
+
+  // AI Chatbot State (Left Narrow Assistant)
+  const [isChatbotCollapsed, setIsChatbotCollapsed] = useState<boolean>(false);
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState<boolean>(false);
 
   // 2. Weather State
   const [currentWeather, setCurrentWeather] = useState<CurrentWeather>({
@@ -284,10 +291,43 @@ export default function App() {
         onToggleLanguage={() => setLanguage((prev) => (prev === 'hi' ? 'en' : 'hi'))}
         onSpeakAdvisory={() => handleSpeak()}
         isSpeaking={isSpeaking}
+        onToggleChatbot={() => {
+          if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            setIsMobileChatOpen((prev) => !prev);
+          } else {
+            setIsChatbotCollapsed((prev) => !prev);
+          }
+        }}
+        isChatbotOpen={!isChatbotCollapsed || isMobileChatOpen}
       />
 
-      {/* 2. Main Content Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
+      {/* 2. Main Layout Container: Left Narrow AI Assistant + Dashboard Content */}
+      <div className="flex-1 flex flex-row w-full max-w-[1440px] mx-auto items-start relative">
+        {/* Left Narrow AI Chatbot Assistant (Voice or Type inputs) */}
+        <AiChatAssistant
+          selectedLocation={selectedLocation}
+          selectedCrop={selectedCrop}
+          currentTempC={currentWeather.temperatureC}
+          weatherDesc={isHi ? currentWeather.weatherDescriptionHi : currentWeather.weatherDescriptionEn}
+          rootMoisturePct={soilState.rootZoneMoisturePct}
+          mandiPriceInr={currentMandiRecord.modalPriceInr}
+          language={language}
+          isCollapsed={isChatbotCollapsed}
+          onToggleCollapse={() => setIsChatbotCollapsed((prev) => !prev)}
+          isMobileOpen={isMobileChatOpen}
+          onCloseMobile={() => setIsMobileChatOpen(false)}
+        />
+
+        {/* Mobile backdrop when left drawer is open */}
+        {isMobileChatOpen && (
+          <div
+            onClick={() => setIsMobileChatOpen(false)}
+            className="lg:hidden fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-40 transition-opacity"
+          />
+        )}
+
+        {/* Main Dashboard Content */}
+        <main className="flex-1 min-w-0 px-3 sm:px-6 py-4 sm:py-6 space-y-6">
         
         {/* HERO CARD: आज का मुख्य फैसला (Today's Key Farm Verdict) */}
         <section className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-green-900 text-white rounded-3xl p-5 sm:p-7 shadow-xl border border-emerald-700/50 relative overflow-hidden">
@@ -989,12 +1029,23 @@ export default function App() {
 
         </div>
       </main>
+      </div>
 
-      {/* 5. Mobile Sticky Bottom Quick Bar */}
-      <aside aria-label="Quick Actions" className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-sm bg-stone-900/90 backdrop-blur-md text-white rounded-full px-4 py-2.5 shadow-2xl border border-white/20 flex items-center justify-between text-xs font-bold sm:hidden">
+      {/* 5. Mobile Sticky Bottom Quick Bar with Voice AI */}
+      <aside aria-label="Quick Actions" className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-md bg-stone-900/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl border border-white/20 flex items-center justify-between text-xs font-bold sm:hidden">
+        <button
+          onClick={() => setIsMobileChatOpen(true)}
+          className="flex items-center gap-1.5 text-amber-300 active:scale-95 transition-transform"
+        >
+          <span className="p-1 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center">
+            <Mic className="w-3.5 h-3.5" />
+          </span>
+          <span>{isHi ? 'AI से बोलें' : 'Voice AI'}</span>
+        </button>
+
         <button
           onClick={() => handleSpeak()}
-          className="flex items-center gap-1.5 text-amber-300 active:scale-95 transition-transform"
+          className="flex items-center gap-1.5 text-emerald-300 active:scale-95 transition-transform"
         >
           <Volume2 className="w-4 h-4" />
           <span>{isSpeaking ? (isHi ? 'बोल रहा है...' : 'Speaking') : isHi ? 'सलाह सुनें' : 'Listen'}</span>
@@ -1002,10 +1053,10 @@ export default function App() {
 
         <a
           href="tel:18001801551"
-          className="flex items-center gap-1.5 text-emerald-300"
+          className="flex items-center gap-1 text-stone-300 hover:text-white"
         >
           <PhoneCall className="w-3.5 h-3.5" />
-          <span>1800-180-1551</span>
+          <span>{isHi ? 'हेल्पलाइन' : 'Kisan Line'}</span>
         </a>
       </aside>
 

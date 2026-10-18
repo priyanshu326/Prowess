@@ -25,6 +25,8 @@ interface HeaderProps {
   onToggleLanguage: () => void;
   onSpeakAdvisory: () => void;
   isSpeaking: boolean;
+  onToggleChatbot?: () => void;
+  isChatbotOpen?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleLanguage,
   onSpeakAdvisory,
   isSpeaking,
+  onToggleChatbot,
+  isChatbotOpen,
 }) => {
   const isHi = language === 'hi';
 
@@ -47,6 +51,23 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
+          {onToggleChatbot && (
+            <button
+              onClick={onToggleChatbot}
+              className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border ${
+                isChatbotOpen
+                  ? 'bg-emerald-800 text-white border-emerald-900 shadow-xs'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+              }`}
+              title={isHi ? 'AI सहायक (बोलकर या लिखकर पूछें)' : 'Toggle AI Assistant'}
+            >
+              <span className="text-base">🤖</span>
+              <span className="text-xs font-black hidden sm:inline">
+                {isHi ? 'AI मित्र' : 'AI Chat'}
+              </span>
+            </button>
+          )}
+
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-emerald-800 to-green-700 flex items-center justify-center text-white shadow-md shadow-emerald-800/20 shrink-0">
             <Sprout className="w-6 h-6 text-emerald-100" />
           </div>
