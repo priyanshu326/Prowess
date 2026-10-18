@@ -51,9 +51,8 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('hi');
   const [activeTab, setActiveTab] = useState<'all' | 'weather' | 'irrigation' | 'sowing' | 'mandi' | 'doctor' | 'pool'>('all');
 
-  // AI Chatbot State (Left Narrow Assistant)
-  const [isChatbotCollapsed, setIsChatbotCollapsed] = useState<boolean>(false);
-  const [isMobileChatOpen, setIsMobileChatOpen] = useState<boolean>(false);
+  // AI Chatbot State (Responsive Right Corner Assistant with Fixed Space)
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(true);
 
   // 2. Weather State
   const [currentWeather, setCurrentWeather] = useState<CurrentWeather>({
@@ -291,14 +290,8 @@ export default function App() {
         onToggleLanguage={() => setLanguage((prev) => (prev === 'hi' ? 'en' : 'hi'))}
         onSpeakAdvisory={() => handleSpeak()}
         isSpeaking={isSpeaking}
-        onToggleChatbot={() => {
-          if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-            setIsMobileChatOpen((prev) => !prev);
-          } else {
-            setIsChatbotCollapsed((prev) => !prev);
-          }
-        }}
-        isChatbotOpen={!isChatbotCollapsed || isMobileChatOpen}
+        onToggleChatbot={() => setIsChatOpen((prev) => !prev)}
+        isChatbotOpen={isChatOpen}
       />
 
       {/* 2. Main Layout Container: Dashboard Content + Right Corner AI Assistant */}
@@ -1008,7 +1001,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* Right Corner AI Chatbot Assistant (Voice & Type Inputs) */}
+      {/* Right Corner AI Chatbot Assistant (Fixed Space with Pinned Input & Zero Page Scroll) */}
       <AiChatAssistant
         selectedLocation={selectedLocation}
         selectedCrop={selectedCrop}
@@ -1017,59 +1010,22 @@ export default function App() {
         rootMoisturePct={soilState.rootZoneMoisturePct}
         mandiPriceInr={currentMandiRecord.modalPriceInr}
         language={language}
-        isCollapsed={isChatbotCollapsed}
-        onToggleCollapse={() => setIsChatbotCollapsed((prev) => !prev)}
-        isMobileOpen={isMobileChatOpen}
-        onCloseMobile={() => setIsMobileChatOpen(false)}
+        isOpen={isChatOpen}
+        onToggleOpen={() => setIsChatOpen((prev) => !prev)}
+        onClose={() => setIsChatOpen(false)}
       />
-
-      {/* Mobile backdrop when right drawer is open */}
-      {isMobileChatOpen && (
-        <div
-          onClick={() => setIsMobileChatOpen(false)}
-          className="lg:hidden fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-40 transition-opacity"
-        />
-      )}
       </div>
 
-      {/* Floating Right Corner Launcher Button */}
-      {(isChatbotCollapsed || !isMobileChatOpen) && (
-        <button
-          onClick={() => {
-            if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-              setIsMobileChatOpen(true);
-            } else {
-              setIsChatbotCollapsed(false);
-            }
-          }}
-          className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-emerald-800 to-green-700 hover:from-emerald-700 hover:to-green-600 text-white pl-3.5 pr-4 py-2.5 rounded-full shadow-2xl border-2 border-emerald-300 flex items-center gap-2.5 cursor-pointer active:scale-95 transition-all hover:scale-105"
-          title={isHi ? 'AI कृषि मित्र (वॉयस व टाइपिंग)' : 'Kisan AI Chatbot'}
-        >
-          <div className="w-8 h-8 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-            🤖
-          </div>
-          <div className="text-left">
-            <div className="text-xs font-black tracking-wide leading-tight">
-              {isHi ? 'AI कृषि मित्र' : 'Kisan AI'}
-            </div>
-            <div className="text-[10px] text-emerald-200 leading-tight">
-              {isHi ? 'बोलें या लिखें' : 'Voice & Typing'}
-            </div>
-          </div>
-        </button>
-      )}
-
-
-      {/* 5. Mobile Sticky Bottom Quick Bar with Voice AI */}
+      {/* 5. Mobile Sticky Bottom Quick Bar */}
       <aside aria-label="Quick Actions" className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-md bg-stone-900/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl border border-white/20 flex items-center justify-between text-xs font-bold sm:hidden">
         <button
-          onClick={() => setIsMobileChatOpen(true)}
-          className="flex items-center gap-1.5 text-amber-300 active:scale-95 transition-transform"
+          onClick={() => setIsChatOpen(true)}
+          className="flex items-center gap-1.5 text-amber-300 active:scale-95 transition-transform cursor-pointer"
         >
           <span className="p-1 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center">
-            <Mic className="w-3.5 h-3.5" />
+            <Bot className="w-3.5 h-3.5" />
           </span>
-          <span>{isHi ? 'AI से बोलें' : 'Voice AI'}</span>
+          <span>{isHi ? 'AI चैट' : 'AI Chat'}</span>
         </button>
 
         <button
@@ -1079,6 +1035,7 @@ export default function App() {
           <Volume2 className="w-4 h-4" />
           <span>{isSpeaking ? (isHi ? 'बोल रहा है...' : 'Speaking') : isHi ? 'सलाह सुनें' : 'Listen'}</span>
         </button>
+
 
         <a
           href="tel:18001801551"
