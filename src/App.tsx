@@ -1043,7 +1043,7 @@ export default function App() {
             }
           }}
           className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-emerald-800 to-green-700 hover:from-emerald-700 hover:to-green-600 text-white pl-3.5 pr-4 py-2.5 rounded-full shadow-2xl border-2 border-emerald-300 flex items-center gap-2.5 cursor-pointer active:scale-95 transition-all hover:scale-105"
-          title={isHi ? 'AI कृषि मित्र (चैट)' : 'Kisan AI Chatbot'}
+          title={isHi ? 'AI कृषि मित्र (वॉयस व टाइपिंग)' : 'Kisan AI Chatbot'}
         >
           <div className="w-8 h-8 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
             🤖
@@ -1053,23 +1053,23 @@ export default function App() {
               {isHi ? 'AI कृषि मित्र' : 'Kisan AI'}
             </div>
             <div className="text-[10px] text-emerald-200 leading-tight">
-              {isHi ? 'सवाल पूछें' : 'Ask Question'}
+              {isHi ? 'बोलें या लिखें' : 'Voice & Typing'}
             </div>
           </div>
         </button>
       )}
 
 
-      {/* 5. Mobile Sticky Bottom Quick Bar */}
+      {/* 5. Mobile Sticky Bottom Quick Bar with Voice AI */}
       <aside aria-label="Quick Actions" className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-md bg-stone-900/95 backdrop-blur-md text-white rounded-full px-4 py-2 shadow-2xl border border-white/20 flex items-center justify-between text-xs font-bold sm:hidden">
         <button
           onClick={() => setIsMobileChatOpen(true)}
           className="flex items-center gap-1.5 text-amber-300 active:scale-95 transition-transform"
         >
           <span className="p-1 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center">
-            <Bot className="w-3.5 h-3.5" />
+            <Mic className="w-3.5 h-3.5" />
           </span>
-          <span>{isHi ? 'AI चैट' : 'AI Chat'}</span>
+          <span>{isHi ? 'AI से बोलें' : 'Voice AI'}</span>
         </button>
 
         <button
@@ -1079,7 +1079,6 @@ export default function App() {
           <Volume2 className="w-4 h-4" />
           <span>{isSpeaking ? (isHi ? 'बोल रहा है...' : 'Speaking') : isHi ? 'सलाह सुनें' : 'Listen'}</span>
         </button>
-
 
         <a
           href="tel:18001801551"
