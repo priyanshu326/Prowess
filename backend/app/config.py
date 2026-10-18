@@ -9,7 +9,7 @@ from pydantic import Field
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore"
     )
@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+
+    # Google Gemini AI Configuration
+    GEMINI_API_KEY: str = Field(default="", description="Google Gemini API Key for agronomic AI and voice chat")
+    GEMINI_MODEL: str = Field(default="gemini-3.8-flash", description="Default Gemini model")
 
     # Security & JWT Authentication
     JWT_SECRET_KEY: str = "kisaan-smart-irrigation-super-secret-key-change-in-production-2026"

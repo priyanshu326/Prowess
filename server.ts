@@ -6,6 +6,8 @@ import { GoogleGenAI, Type } from '@google/genai';
 
 dotenv.config();
 
+const DEFAULT_GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6KS3BXzRkBk7dNulae58DonQcvvzpY_cBxlDAT6uVy-xw';
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -384,7 +386,7 @@ app.get('/api/irrigation/recommendation', (req: Request, res: Response) => {
 // Route: POST /api/crop-doctor/analyze & POST /api/crop/analyze
 app.post(['/api/crop-doctor/analyze', '/api/crop/analyze'], async (req: Request, res: Response) => {
   const { imageBase64, mimeType, cropId, userSymptoms, location } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || DEFAULT_GEMINI_API_KEY;
 
   if (apiKey && imageBase64) {
     try {
@@ -585,7 +587,7 @@ Return your diagnosis in structured JSON matching this schema:
 // Route: POST /api/chat (AI Chatbot Assistant for Farmers - Text and Voice Messages)
 app.post(['/api/chat', '/api/ai-assistant/chat'], async (req: Request, res: Response) => {
   let { message, audioBase64, mimeType, history = [], context = {} } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || DEFAULT_GEMINI_API_KEY;
   const isHi = context.language !== 'en';
   let transcribedText = '';
 
@@ -1012,7 +1014,7 @@ app.get(['/health', '/api/health'], async (_req: Request, res: Response) => {
       status: weatherUp ? 'UP' : 'DEGRADED',
       latency_ms: latencyMs,
     },
-    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY || DEFAULT_GEMINI_API_KEY),
   });
 });
 
