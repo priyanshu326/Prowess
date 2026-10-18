@@ -274,6 +274,7 @@ def evaluate_water_stress(
     else:
         cum_et0_5d = 20.0  # Conservative 4 mm/day default
         cum_rain_5d = 0.0
+        limitations.append("Live meteorological telemetry unavailable; moisture deficit evaluated from irrigation history and regional baseline.")
 
     # Readily available water capacity (RAW is typically 50% of AWC)
     raw_mm = awc_mm * 0.55

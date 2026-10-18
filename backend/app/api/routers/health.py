@@ -24,4 +24,5 @@ async def get_health():
         "environment": settings.ENVIRONMENT,
         "database": settings.DATABASE_URL.split("///")[0] if "///" in settings.DATABASE_URL else "configured",
         "weather_provider": provider_status,
+        "ai_explanation_layer": "configured (Gemini active)" if settings.model_dump().get("GEMINI_API_KEY") or "GEMINI_API_KEY" in __import__("os").environ else "deterministic_fallback",
     }

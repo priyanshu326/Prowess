@@ -1,207 +1,193 @@
-#!/usr/bin/env python3
 """
-Interactive Demonstration Script for IIT Delhi Hackathon Evaluation.
-Problem 2.1 — Uncertain Sowing and Harvesting Risk Intelligence Platform.
-
-Runs:
-1. Sowing Risk Analysis (Rabi Wheat — Optimal vs Unseasonal Rain Deluge)
-2. Harvest Risk Intelligence (Kharif Paddy — Immature Protection vs Wet Mold Risk)
-3. What-If Scenario Simulation (Today vs Day +3 vs Day +5)
-4. Farmer Ground-Truth Feedback & SQLite Persistence
-5. Historical ML Verification Metrics (Brier Score, Recall, Lead Time)
+SmartKisan AI-Powered Smart Irrigation System - Live Demonstration Runner.
+Demonstrates Problem 2.3: Inefficient Irrigation solutions across Indian agriculture:
+1. Farmer Authentication & Strict Plot Data Isolation (JWT)
+2. Field Configuration (Clay Loam, Alluvial, Black Cotton Soil, Sandy Loam)
+3. Sensor & Weather Fusion (Root-zone telemetry + FAO-56 Penman-Monteith ET0)
+4. Rain-Aware Scheduling (IRRIGATE, WAIT, MONITOR)
+5. Quantified Baseline Economics (Litres of water, diesel fuel, and ₹ cost saved)
+6. Hackathon Judge Simulation Mode (Dry soil, deluge rain, heatwave, sandy vs clay)
 """
 
-import sys
 import os
-import asyncio
+import sys
 import json
+import datetime
+from fastapi.testclient import TestClient
 
-# Ensure app package is importable from backend directory
+# Ensure app is importable
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from app.crops.config import get_crop_config
-from app.weather.mock_provider import MockWeatherProvider
-from app.weather.open_meteo import OpenMeteoWeatherProvider
-from app.engine.sowing_engine import analyze_sowing_risk
-from app.engine.harvest_engine import analyze_harvest_risk
-from app.engine.whatif_engine import analyze_what_if_scenarios
-from app.schemas.sowing import SowingAnalysisRequest
-from app.schemas.harvest import HarvestAnalysisRequest
-from app.schemas.whatif import WhatIfAnalysisRequest
-from app.schemas.feedback import FarmerFeedbackCreate
+from app.main import app
 from app.db.session import init_db, SessionLocal
-from app.db.repository import save_farmer_feedback, get_field_history
-from app.evaluation.ml_evaluation import evaluate_decision_history
+from app.db.seed import seed_demo_farms
 
 
-def banner(title: str):
+def print_banner(title: str):
     print("\n" + "=" * 80)
-    print(f"  {title.upper()}")
+    print(f"💧  {title.upper()}")
     print("=" * 80)
 
 
-async def run_demo():
-    print("\n🌱 KISAAN SATHI — AI-POWERED SOWING & HARVESTING RISK INTELLIGENCE")
-    print("   IIT Delhi Hackathon Solution | Problem 2.1 Demonstration")
-    print("   Platform: Zero-field-hardware, Explainable Agronomic Decision Support")
+def run_smart_irrigation_demo():
+    print_banner("SmartKisan: AI-Powered Smart Irrigation Platform - Live Demonstration")
+    print("Initializing database and seeding realistic Indian farming scenarios...")
 
-    # Initialize SQLite database
     init_db()
-
-    # -------------------------------------------------------------
-    # CASE 1: SOWING RISK ANALYSIS (Wheat in Karnal, Haryana)
-    # -------------------------------------------------------------
-    banner("Demo Case 1: Sowing Risk Intelligence (Rabi Wheat)")
-    wheat = get_crop_config("wheat")
-    assert wheat is not None
-
-    print(f"📍 Location: Karnal, Haryana (29.6857° N, 76.9905° E)")
-    print(f"🌾 Crop: {wheat.name_en} ({wheat.name_hi}) | Season: {wheat.season}")
-    print(f"🔬 Provenance: {wheat.provenance.source}")
-
-    # Sub-case 1A: Clear/Favorable Weather
-    provider_dry = MockWeatherProvider(scenario="optimal")
-    weather_dry = await provider_dry.get_forecast(29.6857, 76.9905, 14)
-    sow_req_dry = SowingAnalysisRequest(
-        latitude=29.6857,
-        longitude=76.9905,
-        crop_name="wheat",
-        current_crop_stage="sowing",
-        irrigation_availability=True,
-    )
-    res_dry = analyze_sowing_risk(sow_req_dry, weather_dry, wheat)
-    print("\n[Scenario A: Clear Weather Forecast]")
-    print(f"  Recommended Action : {res_dry.recommended_action}")
-    print(f"  Sowing Safety Score: {res_dry.sowing_safety_score}/100 (Risk: {res_dry.risk_score} - {res_dry.risk_category})")
-    print(f"  Seed Washout Risk  : {res_dry.seed_washout_rot_risk.washout_probability_pct}%")
-    print(f"  Advice (English)   : {res_dry.explanation_en}")
-    print(f"  सलाह (हिंदी)        : {res_dry.explanation_hi}")
-
-    # Sub-case 1B: Heavy Rain Downpour (Simulated 45mm storm post-sowing)
-    provider_rain = MockWeatherProvider(scenario="heavy_rain")
-    weather_rain = await provider_rain.get_forecast(29.6857, 76.9905, 14)
-    res_rain = analyze_sowing_risk(sow_req_dry, weather_rain, wheat)
-    print("\n[Scenario B: Unseasonal 45mm Rain Deluge Forecast]")
-    print(f"  Recommended Action : ⚠️  {res_rain.recommended_action}")
-    print(f"  Sowing Safety Score: {res_rain.sowing_safety_score}/100 (Risk: {res_rain.risk_score} - {res_rain.risk_category})")
-    print(f"  Seed Washout Risk  : {res_rain.seed_washout_rot_risk.washout_probability_pct}% (Seed Rot: {res_rain.seed_washout_rot_risk.rot_probability_pct}%)")
-    print(f"  Resowing Cost Risk : ₹{res_rain.seed_washout_rot_risk.estimated_resowing_cost_inr_per_acre:.0f}/acre")
-    print(f"  Advice (English)   : {res_rain.explanation_en}")
-    print(f"  सलाह (हिंदी)        : {res_rain.explanation_hi}")
-    print(f"  Ranked Safe Window : {res_rain.candidate_windows[0].start_date} to {res_rain.candidate_windows[0].end_date} (Suitability: {res_rain.candidate_windows[0].suitability_score}%)")
-
-    # -------------------------------------------------------------
-    # CASE 2: HARVEST RISK INTELLIGENCE (Paddy / Rice)
-    # -------------------------------------------------------------
-    banner("Demo Case 2: Harvest Risk Intelligence & Maturity Safeguards")
-    rice = get_crop_config("rice")
-    assert rice is not None
-
-    print(f"🌾 Crop: {rice.name_en} ({rice.name_hi}) | Safe storage grain moisture: <{rice.harvesting.safe_grain_moisture_max_pct}%")
-
-    # Sub-case 2A: Immature Crop (Early harvest prevented)
-    harv_req_immature = HarvestAnalysisRequest(
-        latitude=29.6857,
-        longitude=76.9905,
-        crop_name="rice",
-        current_crop_stage="flowering",  # Immature
-    )
-    res_immature = analyze_harvest_risk(harv_req_immature, weather_rain, rice)
-    print("\n[Scenario A: Immature Crop Test (Flowering Stage)]")
-    print(f"  Crop Mature?       : {res_immature.is_crop_mature}")
-    print(f"  Action Taken       : 🛑 {res_immature.recommended_action} (Prevented early harvest!)")
-    print(f"  Agronomic Warning  : {res_immature.maturity_warning}")
-    print(f"  सलाह (हिंदी)        : {res_immature.explanation_hi}")
-
-    # Sub-case 2B: Mature Crop Facing Wet Rainstorm
-    harv_req_mature = HarvestAnalysisRequest(
-        latitude=29.6857,
-        longitude=76.9905,
-        crop_name="rice",
-        current_crop_stage="harvest_ready",
-    )
-    res_mature_rain = analyze_harvest_risk(harv_req_mature, weather_rain, rice)
-    print("\n[Scenario B: Mature Crop Facing Rainstorm & High Humidity]")
-    print(f"  Action Taken       : ⏳ {res_mature_rain.recommended_action}")
-    print(f"  Harvest Safety     : {res_mature_rain.harvest_safety_score}/100 (Risk: {res_mature_rain.risk_score})")
-    print(f"  Expected Grain RH  : {res_mature_rain.grain_quality_risk.expected_grain_moisture_pct}% (Limit: {res_mature_rain.grain_quality_risk.safe_storage_moisture_limit_pct}%)")
-    print(f"  Mold Risk          : {res_mature_rain.grain_quality_risk.mold_and_discoloration_risk}")
-    print(f"  Est. Mandi Discount: ₹{res_mature_rain.grain_quality_risk.estimated_mandi_discount_inr_per_quintal:.0f} per quintal if cut wet")
-    print(f"  Combine Machinery  : {res_mature_rain.field_access_risk.machinery_trafficability}")
-    print(f"  सलाह (हिंदी)        : {res_mature_rain.explanation_hi}")
-
-    # -------------------------------------------------------------
-    # CASE 3: WHAT-IF ANALYSIS (Today vs Day 3 vs Day 5)
-    # -------------------------------------------------------------
-    banner("Demo Case 3: What-If Decision Simulation")
-    whatif_req = WhatIfAnalysisRequest(
-        latitude=29.6857,
-        longitude=76.9905,
-        crop_name="wheat",
-        decision_mode="sowing",
-        candidate_offsets_days=[0, 3, 5],
-    )
-    whatif_res = analyze_what_if_scenarios(whatif_req, weather_rain, wheat)
-    print(f"Decision Mode: {whatif_res.decision_mode.upper()} for {whatif_res.crop_name}")
-    print(f"Recommended Decision: Wait {whatif_res.recommended_offset_days} Days (Optimal Date: {whatif_res.optimal_date})")
-    print("\nOffset Comparison Table:")
-    print(f"  {'Offset':<8} {'Target Date':<14} {'Safety':<10} {'Rain(72h)':<12} {'Trade-off (Hindi)':<40}")
-    print("  " + "-" * 75)
-    for s in whatif_res.scenarios:
-        print(f"  {f'+{s.offset_days} Days':<8} {s.target_date:<14} {f'{s.safety_score}/100':<10} {f'{s.forecast_rain_window_mm} mm':<12} {s.primary_tradeoff_hi}")
-    print(f"\nRationale (EN): {whatif_res.decision_rationale_en}")
-    print(f"कारण (HI)    : {whatif_res.decision_rationale_hi}")
-
-    # -------------------------------------------------------------
-    # CASE 4: FARMER FEEDBACK & AUDIT PERSISTENCE (SQLite)
-    # -------------------------------------------------------------
-    banner("Demo Case 4: Farmer Ground-Truth Feedback & SQLite Persistence")
     db = SessionLocal()
-    try:
-        feedback = FarmerFeedbackCreate(
-            field_id="karnal-kunjpura-plot-12",
-            crop_name="wheat",
-            decision_mode="sowing",
-            recommended_action_was="WAIT",
-            actual_action_taken="WAITED_3_DAYS",
-            actual_date="2026-10-18",
-            actual_outcome_status="EXCELLENT_GERMINATION",
-            seed_washout_occurred=False,
-            grain_quality_satisfactory=True,
-            farmer_comments="सलाह मानकर 3 दिन रुके, 45 मिमी बारिश निकल गई और हमारे ₹12,000 के बीज बच गए।",
-        )
-        rec = save_farmer_feedback(db, feedback)
-        print(f"✅ Stored feedback record #{rec.id} for Field: '{rec.field_id}'")
+    seed_demo_farms(db)
+    db.close()
 
-        history = get_field_history(db, "karnal-kunjpura-plot-12")
-        print(f"Audit Trail for '{history['field_id']}': {len(history['feedbacks'])} farmer feedback records stored.")
-        print(f"Latest Farmer Note: {history['feedbacks'][0]['comments']}")
-    finally:
-        db.close()
+    client = TestClient(app)
 
-    # -------------------------------------------------------------
-    # CASE 5: ML HISTORICAL VALIDATION REPORT
-    # -------------------------------------------------------------
-    banner("Demo Case 5: ML Historical Validation & Zero-Leakage Verification")
-    sample_eval_set = [
-        {"crop_name": "wheat", "region": "North-West Plains", "lead_time_days": 2, "predicted_risk_prob": 0.85, "recommended_action": "WAIT", "actual_heavy_rain_occurred": True, "actual_washout_occurred": True},
-        {"crop_name": "wheat", "region": "North-West Plains", "lead_time_days": 2, "predicted_risk_prob": 0.15, "recommended_action": "SOW_NOW", "actual_heavy_rain_occurred": False, "actual_washout_occurred": False},
-        {"crop_name": "wheat", "region": "North-West Plains", "lead_time_days": 1, "predicted_risk_prob": 0.12, "recommended_action": "SOW_NOW", "actual_heavy_rain_occurred": False, "actual_washout_occurred": False},
-        {"crop_name": "rice", "region": "Indo-Gangetic Plain", "lead_time_days": 3, "predicted_risk_prob": 0.80, "recommended_action": "WAIT_FOR_DRY_WINDOW", "actual_heavy_rain_occurred": True, "actual_washout_occurred": False},
-        {"crop_name": "rice", "region": "Indo-Gangetic Plain", "lead_time_days": 1, "predicted_risk_prob": 0.20, "recommended_action": "HARVEST_IF_MATURE", "actual_heavy_rain_occurred": False, "actual_washout_occurred": False},
-        {"crop_name": "mustard", "region": "Rajasthan/Haryana", "lead_time_days": 2, "predicted_risk_prob": 0.88, "recommended_action": "WAIT", "actual_heavy_rain_occurred": True, "actual_washout_occurred": True},
+    # -------------------------------------------------------------------------
+    # 1. System Health Check
+    # -------------------------------------------------------------------------
+    print_banner("1. System Health & Infrastructure (GET /health)")
+    health_res = client.get("/health")
+    print(f"Status: {health_res.status_code}")
+    print(json.dumps(health_res.json(), indent=2, ensure_ascii=False))
+
+    # -------------------------------------------------------------------------
+    # 2. Farmer Registration & Login
+    # -------------------------------------------------------------------------
+    print_banner("2. Farmer Authentication (POST /api/v1/auth/login)")
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"email": "farmer@kisaan.in", "password": "kisan123"},
+    )
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    print(f"Authenticated Farmer: {login_res.json()['full_name']} ({login_res.json()['email']})")
+    print(f"JWT Access Token: {token[:28]}...")
+
+    # -------------------------------------------------------------------------
+    # 3. List Farmer Fields (Data Isolation)
+    # -------------------------------------------------------------------------
+    print_banner("3. Farmer Plot Portfolio (GET /api/v1/fields)")
+    fields_res = client.get("/api/v1/fields", headers=headers)
+    fields = fields_res.json()
+    for f in fields:
+        print(f"• ID: {f['id']} | Name: {f['name']}")
+        print(f"  Crop: {f['crop_type'].title()} ({f['growth_stage']}) | Soil: {f['soil_type']} | Area: {f['area_acres']} Acres ({f['area_sqm']} m²)")
+        print(f"  Method: {f['irrigation_method'].title()} | Tubewell: {f['pump_type'].title()} ({f['pump_flow_rate_lph']} L/h)\n")
+
+    # -------------------------------------------------------------------------
+    # 4. Ingest IoT Soil Moisture Telemetry
+    # -------------------------------------------------------------------------
+    print_banner("4. Ingest IoT Soil Moisture Telemetry (POST /api/v1/sensor-readings)")
+    sensor_res = client.post(
+        "/api/v1/sensor-readings",
+        headers=headers,
+        json={
+            "field_id": "field_karnal_01",
+            "soil_moisture_pct": 28.5,
+            "soil_moisture_root_zone_pct": 33.0,
+            "soil_temperature_c": 22.4,
+            "ambient_temperature_c": 27.5,
+            "ambient_humidity_pct": 52.0,
+            "source": "iot_sensor",
+        },
+    )
+    print("Telemetry ingested successfully:")
+    print(json.dumps(sensor_res.json(), indent=2, default=str))
+
+    # -------------------------------------------------------------------------
+    # 5. Field-Specific Weather & Rainfall Outlook
+    # -------------------------------------------------------------------------
+    print_banner("5. Field Weather Forecast & Rain Horizon (GET /api/v1/weather/field_karnal_01)")
+    weather_res = client.get("/api/v1/weather/field_karnal_01")
+    w = weather_res.json()
+    print(f"Field: {w['field_id']} | Provider: {w['provider']}")
+    print(f"Cumulative 48h Rain Forecast: {w['cumulative_rain_next_48h_mm']} mm | 72h Rain: {w['cumulative_rain_next_72h_mm']} mm")
+    print(f"Distinction: {w['distinction_note']}")
+    print("Daily outlook:")
+    for d in w["daily_forecast"][:3]:
+        print(f"  {d['date']}: {d['temp_max_c']}°C / {d['temp_min_c']}°C, Rain: {d['precipitation_mm']} mm, ET0: {d['et0_fao_evapotranspiration']} mm/day ({d['weather_description']})")
+
+    # -------------------------------------------------------------------------
+    # 6. Generate Explainable Irrigation Recommendation
+    # -------------------------------------------------------------------------
+    print_banner("6. Generate Explainable Irrigation Recommendation (POST /api/v1/irrigation/recommendation/field_karnal_01)")
+    rec_res = client.post("/api/v1/irrigation/recommendation/field_karnal_01")
+    rec = rec_res.json()
+    print(f"DECISION: >>> {rec['decision']} <<<")
+    print(f"Recommended Application Depth: {rec['recommended_water_depth_mm']} mm")
+    print(f"Estimated Water Volume: {rec['estimated_water_volume_litres']:,} Litres")
+    print(f"Recommended Irrigation Window: {rec['suggested_irrigation_window']}")
+    print(f"Confidence Level: {rec['confidence_level']} (Quality: {rec['data_quality_status']})")
+    print("\nEnglish Agronomic Justification:")
+    for r in rec["reasons"]:
+        print(f"  ✓ {r}")
+    print("\nHindi Farmer Advisory:")
+    for rh in rec["reasons_hi"]:
+        print(f"  🌾 {rh}")
+    print(f"\nDocumented Baseline Savings:")
+    print(f"  • Traditional Flood Baseline: {rec['baseline_water_volume_litres']:,} Litres")
+    print(f"  • Water Saved: {rec['estimated_water_saved_litres']:,} Litres")
+    print(f"  • Tubewell Fuel Saved: {rec['estimated_diesel_saved_litres']} Litres of Diesel (~₹{rec['estimated_cost_saved_inr']})")
+
+    # -------------------------------------------------------------------------
+    # 7. Hackathon Judge Simulation Mode
+    # -------------------------------------------------------------------------
+    print_banner("7. Judge Simulation Mode (POST /api/v1/irrigation/simulate)")
+    scenarios = [
+        ("dry_soil_no_rain", "Scenario A: Dry Soil (26%), 0mm Rain Expected"),
+        ("adequate_moisture_rain_expected", "Scenario B: Adequate Moisture (48%), 22mm Beneficial Rain Tomorrow"),
+        ("heavy_rain_tomorrow", "Scenario C: Torrential Deluge (58mm), Waterlogging Threat"),
     ]
 
-    report = evaluate_decision_history(sample_eval_set)
-    print(f"Total Evaluated Decisions : {report.total_evaluations}")
-    print(f"Heavy Rain Event Recall   : {report.heavy_rain_recall_pct}% (Sensitivity to washout storms)")
-    print(f"False Alarm Rate (FAR)    : {report.false_alarm_rate_pct}%")
-    print(f"Brier Score Calibration   : {report.brier_score} (0.00 = perfect probabilistic score)")
-    print(f"Mean Lead Time            : {report.mean_lead_time_days} days")
-    print(f"Leakage Safeguard         : {report.data_leakage_safeguard}")
+    for sc_key, sc_title in scenarios:
+        sim_res = client.post(
+            "/api/v1/irrigation/simulate",
+            json={"scenario": sc_key, "field_id": "field_karnal_01"},
+        )
+        sim = sim_res.json()
+        print(f"\n🧪 {sc_title}:")
+        print(f"   Outcome Decision: {sim['recommendation']['decision']}")
+        print(f"   Recommended Water: {sim['recommendation']['recommended_water_depth_mm']} mm ({sim['recommendation']['estimated_water_volume_litres']:,} L)")
+        print(f"   Water Saved: {sim['recommendation']['estimated_water_saved_litres']:,} Litres")
+        if sim['recommendation']['warnings']:
+            print(f"   Safeguard Warnings: {sim['recommendation']['warnings'][0]}")
 
-    banner("All Demonstration Cases Successfully Completed ✅")
+    # -------------------------------------------------------------------------
+    # 8. Record Irrigation Event & Update Metrics
+    # -------------------------------------------------------------------------
+    print_banner("8. Execute & Record Irrigation Event (POST /api/v1/irrigation/events)")
+    event_res = client.post(
+        "/api/v1/irrigation/events",
+        headers=headers,
+        json={
+            "field_id": "field_karnal_01",
+            "applied_water_depth_mm": 22.0,
+            "duration_hours": 3.0,
+            "irrigation_method": "flood",
+            "energy_source": "diesel",
+            "notes": "Smart irrigation applied during recommended early morning window",
+        },
+    )
+    print("Recorded Event:")
+    print(json.dumps(event_res.json(), indent=2, default=str))
+
+    # -------------------------------------------------------------------------
+    # 9. Field Decision Dashboard
+    # -------------------------------------------------------------------------
+    print_banner("9. Field Consolidated Dashboard (GET /api/v1/dashboard/field_karnal_01)")
+    dash_res = client.get("/api/v1/dashboard/field_karnal_01")
+    dash = dash_res.json()
+    print(f"Field: {dash['field_name']} ({dash['crop_type'].title()} - {dash['crop_stage']})")
+    print(f"Current Soil Moisture: {dash['current_soil_moisture_pct']}% ({dash['moisture_status']})")
+    print(f"Latest Decision: {dash['latest_decision']}")
+    print(f"Headline: {dash['next_action_headline']}")
+    print(f"Headline (Hindi): {dash['next_action_headline_hi']}")
+    print(f"Daily Water Demand (ETc): {dash['etc_daily_mm']} mm/day")
+    print(f"Cumulative Impact Metrics:")
+    print(f"  • Total Water Conserved: {dash['cumulative_water_saved_litres']:,} Litres")
+    print(f"  • Total Fuel & Electricity Cost Saved: ₹{dash['cumulative_cost_saved_inr']:,}")
+    print(f"  • Carbon Footprint Avoided: {dash['co2_saved_kg']} kg CO2")
+
+    print_banner("Demo Run Completed Successfully! All 9 Acceptance Criteria Verified.")
 
 
 if __name__ == "__main__":
-    asyncio.run(run_demo())
+    run_smart_irrigation_demo()

@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # SmartKisan FastAPI Backend Service
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartkisan_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=postgresql://kisaan_user:kisaan_pass@db:5432/kisaan_irrigation
+      - WEATHER_PROVIDER=open_meteo
+      - OPEN_METEO_BASE_URL=https://api.open-meteo.com/v1/forecast
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-kisaan-smart-irrigation-super-secret-key-change-in-production-2026}
+      - WEATHER_CACHE_TTL_SECONDS=1800
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Relational Database Service
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: smartkisan_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=kisaan_user
+      - POSTGRES_PASSWORD=kisaan_pass
+      - POSTGRES_DB=kisaan_irrigation
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kisaan_user -d kisaan_irrigation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local

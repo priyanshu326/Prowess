@@ -136,7 +136,7 @@ CRITICAL AGRONOMIC SAFETY RULES:
 5. {language_instruction}
 """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={api_key}"
     payload = {
         "contents": [
             {
