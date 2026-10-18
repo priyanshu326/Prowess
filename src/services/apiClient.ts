@@ -105,13 +105,20 @@ export interface ChatRequestContext {
 export async function sendChatMessage(
   message: string,
   history: Array<{ role: 'user' | 'model'; text: string }> = [],
-  context: ChatRequestContext = {}
-): Promise<{ success: boolean; reply: string; suggestedQuestions?: string[]; source?: string }> {
+  context: ChatRequestContext = {},
+  voiceData?: { audioBase64: string; mimeType: string }
+): Promise<{ success: boolean; reply: string; suggestedQuestions?: string[]; source?: string; transcribedQuery?: string }> {
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, history, context }),
+      body: JSON.stringify({
+        message,
+        audioBase64: voiceData?.audioBase64,
+        mimeType: voiceData?.mimeType,
+        history,
+        context,
+      }),
     });
 
     if (!res.ok) {
@@ -131,7 +138,9 @@ export async function sendChatMessage(
         ? ['सिंचाई कब करनी चाहिए?', 'मंडी भाव में क्या रुझान है?']
         : ['When should I irrigate?', 'What is the mandi price trend?'],
       source: 'offline-fallback',
+      transcribedQuery: message,
     };
   }
 }
+
 

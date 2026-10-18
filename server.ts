@@ -582,17 +582,62 @@ Return your diagnosis in structured JSON matching this schema:
   });
 });
 
-// Route: POST /api/chat (AI Chatbot Assistant for Farmers)
+// Route: POST /api/chat (AI Chatbot Assistant for Farmers - Text and Voice Messages)
 app.post(['/api/chat', '/api/ai-assistant/chat'], async (req: Request, res: Response) => {
-  const { message, history = [], context = {} } = req.body;
+  let { message, audioBase64, mimeType, history = [], context = {} } = req.body;
+  const apiKey = process.env.GEMINI_API_KEY;
+  const isHi = context.language !== 'en';
+  let transcribedText = '';
+
+  // If audio is sent without client transcription, transcribe with gemini-3.5-transcribe
+  if ((!message || !message.trim()) && audioBase64 && apiKey) {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const cleanBase64 = audioBase64.replace(/^data:audio\/[a-z0-9-]+;base64,/, '');
+      const transResponse = await ai.models.generateContent({
+        model: 'gemini-3.5-transcribe',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType || 'audio/webm',
+                data: cleanBase64,
+              },
+            },
+            {
+              text: 'Transcribe this spoken farmer audio query in the spoken language (Hindi Devanagari or English). Output only the transcribed query without commentary.',
+            },
+          ],
+        },
+      });
+
+      transcribedText = (transResponse.text || '').trim();
+      if (transcribedText) {
+        message = transcribedText;
+      }
+    } catch (transErr) {
+      console.warn('Gemini audio transcription error, using default label:', (transErr as Error).message);
+    }
+  }
+
+  // Fallback label if still empty but audio is attached
+  if ((!message || !message.trim()) && audioBase64) {
+    message = isHi ? 'किसान द्वारा भेजा गया वॉयस संदेश (सिंचाई व फसल सलाह)' : 'Voice Message: Crop and irrigation query';
+  }
 
   if (!message || typeof message !== 'string' || !message.trim()) {
-    return res.status(400).json({ success: false, error: 'कृपया अपना सवाल लिखें या बोलें।' });
+    return res.status(400).json({ success: false, error: 'कृपया अपना सवाल लिखें या वॉयस मैसेज भेजें।' });
   }
 
   const userQuery = message.trim();
-  const apiKey = process.env.GEMINI_API_KEY;
-  const isHi = context.language !== 'en';
 
   // If Gemini API key is available, call gemini-3.8-flash
   if (apiKey) {
@@ -677,6 +722,7 @@ Behavior & Tone Guidelines:
         reply: replyText,
         source: 'gemini-3.8-flash',
         suggestedQuestions,
+        transcribedQuery: userQuery,
       });
     } catch (err) {
       console.warn('Gemini chat API error, falling back to local agronomist engine:', (err as Error).message);
@@ -794,8 +840,10 @@ You can ask anything by tapping the mic to speak or typing!`;
     reply,
     source: 'agronomic-engine-fallback',
     suggestedQuestions,
+    transcribedQuery: userQuery,
   });
 });
+
 
 // Route: GET /api/mandi/prices & GET /api/mandi
 app.get(['/api/mandi/prices', '/api/mandi'], (req: Request, res: Response) => {
